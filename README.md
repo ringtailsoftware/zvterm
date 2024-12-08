@@ -24,6 +24,10 @@ See `examples/helloworld.zig` for usage.
     }
 ```
 
+To build and run the demo,
+
+    zig build helloworld
+
 # Use
 
 First we add the library as a dependency in our `build.zig.zon` file.

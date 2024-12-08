@@ -51,6 +51,7 @@ pub fn build(b: *std.Build) void {
         example.addIncludePath(b.path("examples/"));
         example.addIncludePath(b.path("src/"));
         example.addIncludePath(b.path("../src/"));
+        example.linkLibC();
 
         const install_example = b.addRunArtifact(example);
         example.root_module.addImport(
