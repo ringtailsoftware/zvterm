@@ -1,6 +1,6 @@
 # ZVTerm
 
-A Zig wrapper for a [libvterm](https://www.leonerd.org.uk/code/libvterm/), exposing a small subset in a native Zig API.
+A Zig wrapper for [libvterm](https://www.leonerd.org.uk/code/libvterm/), exposing a small subset in a native Zig API.
 
 (Just enough to build a working toy terminal emulator)
 
