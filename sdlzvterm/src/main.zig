@@ -219,7 +219,7 @@ pub fn main() !void {
                     quit = true;
                 },
                 c.SDL_KEYDOWN => {
-                    if (c.KMOD_CTRL != 0) {
+                    if (event.key.keysym.mod & c.KMOD_CTRL > 0) {
                         switch (event.key.keysym.sym) {
                             c.SDLK_a => {
                                 _ = try master_pt.write("\x01");
