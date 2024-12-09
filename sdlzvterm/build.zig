@@ -9,6 +9,7 @@ pub fn build(b: *std.Build) void {
         .root_source_file = b.path("src/main.zig"),
         .target = target,
         .optimize = optimize,
+        .link_libc = true,
     });
     exe.addIncludePath(b.path("src/"));
 
@@ -17,12 +18,15 @@ pub fn build(b: *std.Build) void {
         .flags = &.{"-Wall"},
     });
 
-    const sdl_dep = b.dependency("SDL",.{
-        .optimize = .ReleaseFast,
-        .target = target,
-    });
-    exe.linkLibrary(sdl_dep.artifact("SDL2"));
-
+    if (b.systemIntegrationOption("sdl2", .{})) {
+        exe.linkSystemLibrary("SDL2");
+    } else {
+        const sdl_dep = b.dependency("SDL", .{
+            .optimize = .ReleaseFast,
+            .target = target,
+        });
+        exe.linkLibrary(sdl_dep.artifact("SDL2"));
+    }
     const zvterm_dep = b.dependency("zvterm", .{
         .target = target,
         .optimize = optimize,
