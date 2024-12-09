@@ -1,8 +1,12 @@
 const std = @import("std");
+const builtin = @import("builtin");
 const c = @cImport({
     @cDefine("_XOPEN_SOURCE", "600");
     @cDefine("_GNU_SOURCE", {});
-    @cInclude("util.h"); // pty.h on linux?
+    if (builtin.os.tag == .linux)
+        @cInclude("pty.h")
+    else
+        @cInclude("util.h");
     @cInclude("SDL2/SDL.h");
 });
 const assert = @import("std").debug.assert;
