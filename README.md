@@ -6,6 +6,8 @@ A Zig wrapper for [libvterm](https://www.leonerd.org.uk/code/libvterm/), exposin
 
 See `examples/helloworld.zig` for usage.
 
+See `sdlzvterm/` for a janky terminal implementation in SDL.
+
 ```zig
     // setup an 80x24 terminal
     var term = try ZVTerm.init(80, 24);
@@ -24,9 +26,14 @@ See `examples/helloworld.zig` for usage.
     }
 ```
 
-To build and run the demo,
+To build and run the simple demo,
 
     zig build helloworld
+
+To build and run the SDL demo terminal,
+
+    cd sdlzvterm
+    zig build run
 
 # Use
 

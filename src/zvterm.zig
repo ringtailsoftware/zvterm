@@ -132,6 +132,11 @@ pub const ZVTerm = struct {
         char: ?u8,
     };
 
+    pub const ZVCursorPos = struct {
+        x: usize,
+        y: usize,
+    };
+
     pub fn init(width:usize, height:usize) !Self {
         const vterm = terminal.vterm_new(@intCast(height), @intCast(width));
         terminal.vterm_output_set_callback(vterm, output_callback, null);
@@ -145,6 +150,16 @@ pub const ZVTerm = struct {
             .width = width,
             .height = height,
             .vtw = TermWriter{.vterm = vterm},
+        };
+    }
+
+    pub fn getCursorPos(self:*Self) ZVCursorPos {
+        var cursorpos:terminal.VTermPos = undefined;
+        const state = terminal.vterm_obtain_state(self.vterm);
+        terminal.vterm_state_get_cursorpos(state, &cursorpos);
+        return .{
+            .x = @intCast(cursorpos.col),
+            .y = @intCast(cursorpos.row),
         };
     }
 

@@ -23,4 +23,7 @@ jobs:
       - name: Build example
         run: zig build helloworld
         working-directory: zvterm
+      - name: Build sdlzvterm
+        run: zig build
+        working-directory: zvterm/sdlzvterm
 
