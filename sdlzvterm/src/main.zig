@@ -124,10 +124,10 @@ pub fn drawString(renderer: *c.SDL_Renderer, font: *Font, str: []const u8, posx:
     }
 }
 
-fn timer_cb(interval:u32, userdata:?*anyopaque) callconv(.C) u32 {
+fn timer_cb(interval: u32, userdata: ?*anyopaque) callconv(.C) u32 {
     _ = userdata;
-    var event:c.SDL_Event = undefined;
-    var userevent:c.SDL_UserEvent = undefined;
+    var event: c.SDL_Event = undefined;
+    var userevent: c.SDL_UserEvent = undefined;
 
     userevent.type = c.SDL_USEREVENT;
     userevent.code = 0;
@@ -219,12 +219,41 @@ pub fn main() !void {
                     quit = true;
                 },
                 c.SDL_KEYDOWN => {
+                    if (c.KMOD_CTRL != 0) {
+                        switch (event.key.keysym.sym) {
+                            c.SDLK_a => {
+                                _ = try master_pt.write("\x01");
+                            },
+                            c.SDLK_b => {
+                                _ = try master_pt.write("\x02");
+                            },
+                            c.SDLK_c => {
+                                _ = try master_pt.write("\x03");
+                            },
+                            c.SDLK_d => {
+                                _ = try master_pt.write("\x04");
+                            },
+                            c.SDLK_e => {
+                                _ = try master_pt.write("\x05");
+                            },
+                            c.SDLK_f => {
+                                _ = try master_pt.write("\x06");
+                            },
+                            c.SDLK_g => {
+                                _ = try master_pt.write("\x07");
+                            },
+                            c.SDLK_r => {
+                                _ = try master_pt.write("\x12");
+                            },
+                            else => {},
+                        }
+                    }
                     switch (event.key.keysym.sym) {
                         c.SDLK_TAB => {
                             _ = try master_pt.write("\t");
                         },
                         c.SDLK_ESCAPE => {
-                            _ = try master_pt.write("\x1b[A");
+                            _ = try master_pt.write("\x1b");
                         },
                         c.SDLK_BACKSPACE => {
                             _ = try master_pt.write("\x7f");
@@ -240,6 +269,9 @@ pub fn main() !void {
                         },
                         c.SDLK_LEFT => {
                             _ = try master_pt.write("\x1b[D");
+                        },
+                        c.SDLK_PAGEUP => {
+                            _ = try master_pt.write("\x1b[5~");
                         },
                         c.SDLK_RETURN, c.SDLK_RETURN2 => {
                             _ = try master_pt.write("\r");
@@ -290,14 +322,13 @@ pub fn main() !void {
                     }
                     if (x == cursorPos.x and y == cursorPos.y) {
                         _ = c.SDL_SetRenderDrawColor(renderer, 0xFF, 0xFF, 0xFF, 0xFF);
-                        var rect:c.SDL_Rect = undefined;
-                        rect.x = @intCast(x * FONTSIZE/2);
+                        var rect: c.SDL_Rect = undefined;
+                        rect.x = @intCast(x * FONTSIZE / 2);
                         rect.y = @intCast(y * FONTSIZE);
-                        rect.w = FONTSIZE/2;
+                        rect.w = FONTSIZE / 2;
                         rect.h = FONTSIZE;
                         _ = c.SDL_RenderFillRect(renderer, &rect);
                     }
-
                 }
             }
 
