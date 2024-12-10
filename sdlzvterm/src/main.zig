@@ -244,59 +244,59 @@ pub fn main() !void {
                     if (event.key.keysym.mod & c.KMOD_CTRL > 0) {
                         switch (event.key.keysym.sym) {
                             c.SDLK_a => {
-                                _ = try master_pt.write("\x01");
+                                _ = master_pt.write("\x01") catch {quit = true;};
                             },
                             c.SDLK_b => {
-                                _ = try master_pt.write("\x02");
+                                _ = master_pt.write("\x02") catch {quit = true;};
                             },
                             c.SDLK_c => {
-                                _ = try master_pt.write("\x03");
+                                _ = master_pt.write("\x03") catch {quit = true;};
                             },
                             c.SDLK_d => {
-                                _ = try master_pt.write("\x04");
+                                _ = master_pt.write("\x04") catch {quit = true;};
                             },
                             c.SDLK_e => {
-                                _ = try master_pt.write("\x05");
+                                _ = master_pt.write("\x05") catch {quit = true;};
                             },
                             c.SDLK_f => {
-                                _ = try master_pt.write("\x06");
+                                _ = master_pt.write("\x06") catch {quit = true;};
                             },
                             c.SDLK_g => {
-                                _ = try master_pt.write("\x07");
+                                _ = master_pt.write("\x07") catch {quit = true;};
                             },
                             c.SDLK_r => {
-                                _ = try master_pt.write("\x12");
+                                _ = master_pt.write("\x12") catch {quit = true;};
                             },
                             else => {},
                         }
                     }
                     switch (event.key.keysym.sym) {
                         c.SDLK_TAB => {
-                            _ = try master_pt.write("\t");
+                            _ = master_pt.write("\t") catch {quit = true;};
                         },
                         c.SDLK_ESCAPE => {
-                            _ = try master_pt.write("\x1b");
+                            _ = master_pt.write("\x1b") catch {quit = true;};
                         },
                         c.SDLK_BACKSPACE => {
-                            _ = try master_pt.write("\x7f");
+                            _ = master_pt.write("\x7f") catch {quit = true;};
                         },
                         c.SDLK_UP => {
-                            _ = try master_pt.write("\x1b[A");
+                            _ = master_pt.write("\x1b[A") catch {quit = true;};
                         },
                         c.SDLK_DOWN => {
-                            _ = try master_pt.write("\x1b[B");
+                            _ = master_pt.write("\x1b[B") catch {quit = true;};
                         },
                         c.SDLK_RIGHT => {
-                            _ = try master_pt.write("\x1b[C");
+                            _ = master_pt.write("\x1b[C") catch {quit = true;};
                         },
                         c.SDLK_LEFT => {
-                            _ = try master_pt.write("\x1b[D");
+                            _ = master_pt.write("\x1b[D") catch {quit = true;};
                         },
                         c.SDLK_PAGEUP => {
-                            _ = try master_pt.write("\x1b[5~");
+                            _ = master_pt.write("\x1b[5~") catch {quit = true;};
                         },
                         c.SDLK_RETURN, c.SDLK_RETURN2 => {
-                            _ = try master_pt.write("\r");
+                            _ = master_pt.write("\r") catch {quit = true;};
                         },
                         else => {},
                     }
