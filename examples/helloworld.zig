@@ -3,8 +3,12 @@ const std = @import("std");
 const ZVTerm = @import("zvterm").ZVTerm;
 
 pub fn main() !void {
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    const allocator = gpa.allocator();
+
     // setup an 80x24 terminal
-    var term = try ZVTerm.init(80, 24);
+    var term = try ZVTerm.init(allocator, 80, 24);
+    defer term.deinit();
     var writer = term.getWriter();
 
     // move cursor to x=10,y=10 and write "Hello world"

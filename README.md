@@ -12,7 +12,8 @@ See `sdlzvterm/` for a janky terminal implementation in SDL.
 
 ```zig
     // setup an 80x24 terminal
-    var term = try ZVTerm.init(80, 24);
+    var term = try ZVTerm.init(allocator, 80, 24);
+    defer term.deinit();
     // get a writer to send data to the terminal
     var writer = term.getWriter();
     // write terminal escape codes

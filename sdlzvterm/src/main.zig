@@ -58,7 +58,7 @@ const keymap = [_]Keymap {
 const FONT_NUMCHARS = 128;
 const FONT_FIRSTCHAR = ' ';
 
-var term: ZVTerm = undefined;
+var term: *ZVTerm = undefined;
 var termwriter: ZVTerm.TermWriter.Writer = undefined;
 
 // FIXME
@@ -221,7 +221,8 @@ pub fn main() !void {
     };
     defer c.SDL_DestroyRenderer(renderer);
 
-    term = try ZVTerm.init(80, 24);
+    term = try ZVTerm.init(allocator, 80, 24);
+    defer term.deinit();
     termwriter = term.getWriter();
 
     // Create key=val pairs from environment
@@ -340,7 +341,7 @@ pub fn main() !void {
                         const yo: i32 = -4;
                         drawString(renderer, font, &.{ch}, @intCast(x * FONTSIZE / 2), @as(i32, @intCast(y * FONTSIZE + FONTSIZE)) + yo, cell.fgRGBA, cell.bgRGBA);
                     }
-                    if (x == cursorPos.x and y == cursorPos.y) {
+                    if (term.cursorvisible and x == cursorPos.x and y == cursorPos.y) {
                         _ = c.SDL_SetRenderDrawColor(renderer, 0xFF, 0xFF, 0xFF, 0xFF);
                         rect.x = @intCast(x * FONTSIZE / 2);
                         rect.y = @intCast(y * FONTSIZE);

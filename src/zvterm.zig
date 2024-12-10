@@ -36,10 +36,20 @@ fn movecursorFn(pos:terminal.VTermPos, oldpos:terminal.VTermPos, visible:c_int, 
 }
 
 fn settermpropFn(prop:terminal.VTermProp, val:?*terminal.VTermValue, user:?*anyopaque) callconv(.C) c_int {
-    _ = prop;
-    _ = val;
-    _ = user;
-    //_ = std.debug.print("settermprop\n", .{}) catch 0;
+    if (user) |userptr| {
+        const userz:*ZVTerm = @ptrCast(@alignCast(userptr));
+
+        switch(prop) {
+            terminal.VTERM_PROP_CURSORVISIBLE => {
+                std.debug.assert(terminal.vterm_get_prop_type(prop) == terminal.VTERM_VALUETYPE_BOOL);
+                std.debug.assert(val != null);
+                userz.cursorvisible = val.?.boolean != 0;
+            },
+            else => {
+                //std.debug.print("settermprop {any}\n", .{prop});
+            },
+        }
+    }
     return 0;
 }
 
@@ -95,6 +105,14 @@ const screen_callbacks:terminal.VTermScreenCallbacks = .{
 pub const ZVTerm = struct {
     const Self = @This();
 
+    vterm:?*terminal.VTerm,
+    screen:?*terminal.VTermScreen,
+    width: usize,
+    height: usize,
+    vtw: TermWriter,
+    allocator: std.mem.Allocator,
+    cursorvisible: bool,
+
     pub const TermWriter = struct {
         pub const Writer = std.io.Writer(
             *TermWriter,
@@ -118,13 +136,6 @@ pub const ZVTerm = struct {
         }
     };
 
-
-    vterm:?*terminal.VTerm,
-    screen:?*terminal.VTermScreen,
-    width: usize,
-    height: usize,
-    vtw: TermWriter,
-
     pub const ZVTermCell = struct {
         fgRGBA: u32,
         bgRGBA: u32,
@@ -137,20 +148,35 @@ pub const ZVTerm = struct {
         y: usize,
     };
 
-    pub fn init(width:usize, height:usize) !Self {
-        const vterm = terminal.vterm_new(@intCast(height), @intCast(width));
-        terminal.vterm_output_set_callback(vterm, output_callback, null);
-        const screen = terminal.vterm_obtain_screen(vterm);
-        terminal.vterm_screen_set_callbacks(screen, &screen_callbacks, null);
-        terminal.vterm_screen_reset(screen, 1);
+    pub fn deinit(self:*Self) void {
+        terminal.vterm_free(self.vterm);
+        self.allocator.destroy(self);
+    }
 
-        return Self {
-            .vterm = vterm,
-            .screen = screen,
+    pub fn init(allocator:std.mem.Allocator, width:usize, height:usize) !*Self {
+        const self = try allocator.create(Self);
+
+        // fill out what we can now
+        // vterm setup will look at this in current state as userdata
+        self.* = .{
+            .allocator = allocator,
+            .vterm = undefined,
+            .screen = undefined,
             .width = width,
             .height = height,
-            .vtw = TermWriter{.vterm = vterm},
+            .vtw = undefined,
+            .cursorvisible = true,
         };
+
+        self.vterm = terminal.vterm_new(@intCast(height), @intCast(width));
+        self.vtw = TermWriter{.vterm = self.vterm};
+
+        terminal.vterm_output_set_callback(self.vterm, output_callback, self);
+        self.screen = terminal.vterm_obtain_screen(self.vterm);
+        terminal.vterm_screen_set_callbacks(self.screen, &screen_callbacks, self);
+        terminal.vterm_screen_reset(self.screen, 1);
+
+        return self;
     }
 
     pub fn getCursorPos(self:*Self) ZVCursorPos {
@@ -205,9 +231,6 @@ pub const ZVTerm = struct {
         return zvtc;
     }
 
-    pub fn deinit(self:*Self) void {
-        terminal.vterm_free(self.vterm);
-    }
 
     pub fn getWriter(self:*Self) TermWriter.Writer {
         return self.vtw.writer();
