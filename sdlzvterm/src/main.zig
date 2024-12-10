@@ -23,6 +23,38 @@ const FONTSIZE: usize = 16;
 const WIDTH = COLS * FONTSIZE / 2;
 const HEIGHT = ROWS * FONTSIZE;
 
+const Keymap = struct {
+    keycode:c.SDL_Keycode,
+    data: []const u8,
+};
+
+// ctrl + SDL key to escape codes
+const ctrlkeymap = [_]Keymap {
+    .{.keycode = c.SDLK_a, .data = "\x01"},
+    .{.keycode = c.SDLK_b, .data = "\x02"},
+    .{.keycode = c.SDLK_c, .data = "\x03"},
+    .{.keycode = c.SDLK_d, .data = "\x04"},
+    .{.keycode = c.SDLK_e, .data = "\x05"},
+    .{.keycode = c.SDLK_f, .data = "\x06"},
+    .{.keycode = c.SDLK_g, .data = "\x07"},
+    .{.keycode = c.SDLK_r, .data = "\x12"},
+};
+
+// SDL key to escape codes
+const keymap = [_]Keymap {
+    .{.keycode = c.SDLK_TAB, .data = "\t"}, 
+    .{.keycode = c.SDLK_ESCAPE, .data = "\x1b"}, 
+    .{.keycode = c.SDLK_BACKSPACE, .data = "\x7f"}, 
+    .{.keycode = c.SDLK_UP, .data = "\x1b[A"}, 
+    .{.keycode = c.SDLK_DOWN, .data = "\x1b[B"}, 
+    .{.keycode = c.SDLK_RIGHT, .data = "\x1b[C"}, 
+    .{.keycode = c.SDLK_LEFT, .data = "\x1b[D"}, 
+    .{.keycode = c.SDLK_PAGEUP, .data = "\x1b[5~"}, 
+    .{.keycode = c.SDLK_PAGEDOWN, .data = "\x1b[6~"}, 
+    .{.keycode = c.SDLK_RETURN, .data = "\r"},
+    .{.keycode = c.SDLK_RETURN2, .data = "\r"},
+};
+
 const FONT_NUMCHARS = 128;
 const FONT_FIRSTCHAR = ' ';
 
@@ -242,63 +274,16 @@ pub fn main() !void {
                 },
                 c.SDL_KEYDOWN => {
                     if (event.key.keysym.mod & c.KMOD_CTRL > 0) {
-                        switch (event.key.keysym.sym) {
-                            c.SDLK_a => {
-                                _ = master_pt.write("\x01") catch {quit = true;};
-                            },
-                            c.SDLK_b => {
-                                _ = master_pt.write("\x02") catch {quit = true;};
-                            },
-                            c.SDLK_c => {
-                                _ = master_pt.write("\x03") catch {quit = true;};
-                            },
-                            c.SDLK_d => {
-                                _ = master_pt.write("\x04") catch {quit = true;};
-                            },
-                            c.SDLK_e => {
-                                _ = master_pt.write("\x05") catch {quit = true;};
-                            },
-                            c.SDLK_f => {
-                                _ = master_pt.write("\x06") catch {quit = true;};
-                            },
-                            c.SDLK_g => {
-                                _ = master_pt.write("\x07") catch {quit = true;};
-                            },
-                            c.SDLK_r => {
-                                _ = master_pt.write("\x12") catch {quit = true;};
-                            },
-                            else => {},
+                        for (ctrlkeymap) |km| {
+                            if (km.keycode == event.key.keysym.sym) {
+                                _ = master_pt.write(km.data) catch {quit = true;};
+                            }
                         }
                     }
-                    switch (event.key.keysym.sym) {
-                        c.SDLK_TAB => {
-                            _ = master_pt.write("\t") catch {quit = true;};
-                        },
-                        c.SDLK_ESCAPE => {
-                            _ = master_pt.write("\x1b") catch {quit = true;};
-                        },
-                        c.SDLK_BACKSPACE => {
-                            _ = master_pt.write("\x7f") catch {quit = true;};
-                        },
-                        c.SDLK_UP => {
-                            _ = master_pt.write("\x1b[A") catch {quit = true;};
-                        },
-                        c.SDLK_DOWN => {
-                            _ = master_pt.write("\x1b[B") catch {quit = true;};
-                        },
-                        c.SDLK_RIGHT => {
-                            _ = master_pt.write("\x1b[C") catch {quit = true;};
-                        },
-                        c.SDLK_LEFT => {
-                            _ = master_pt.write("\x1b[D") catch {quit = true;};
-                        },
-                        c.SDLK_PAGEUP => {
-                            _ = master_pt.write("\x1b[5~") catch {quit = true;};
-                        },
-                        c.SDLK_RETURN, c.SDLK_RETURN2 => {
-                            _ = master_pt.write("\r") catch {quit = true;};
-                        },
-                        else => {},
+                    for (keymap) |km| {
+                        if (km.keycode == event.key.keysym.sym) {
+                            _ = master_pt.write(km.data) catch {quit = true;};
+                        }
                     }
                 },
                 c.SDL_TEXTINPUT => {
