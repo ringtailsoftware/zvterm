@@ -196,6 +196,11 @@ pub const ZVTerm = struct {
         }
 
         zvtc.bold = cell.attrs.bold > 0;
+        if (cell.attrs.reverse > 0) {   // flip colours
+            const tmp = zvtc.bgRGBA;
+            zvtc.bgRGBA = zvtc.fgRGBA;
+            zvtc.fgRGBA = tmp;
+        }
 
         return zvtc;
     }

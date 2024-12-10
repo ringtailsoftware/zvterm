@@ -4,6 +4,8 @@ A Zig wrapper for [libvterm](https://www.leonerd.org.uk/code/libvterm/), exposin
 
 (Just enough to build a working toy terminal emulator)
 
+![](sdlzvterm/demo.gif)
+
 See `examples/helloworld.zig` for usage.
 
 See `sdlzvterm/` for a janky terminal implementation in SDL.
@@ -34,6 +36,8 @@ To build and run the SDL demo terminal,
 
     cd sdlzvterm
     zig build run
+
+
 
 # Use
 
