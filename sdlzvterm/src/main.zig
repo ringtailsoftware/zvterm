@@ -76,7 +76,7 @@ pub const Font = struct {
     }
 };
 
-pub fn drawString(renderer: *c.SDL_Renderer, font: *Font, str: []const u8, posx: i32, posy: i32, colour: u32) void {
+pub fn drawString(renderer: *c.SDL_Renderer, font: *Font, str: []const u8, posx: i32, posy: i32, fgRGBA: u32, bgRGBA: u32) void {
     var startx: f32 = compat_intToFloat(f32, posx);
     var starty: f32 = compat_intToFloat(f32, posy);
 
@@ -107,17 +107,39 @@ pub fn drawString(renderer: *c.SDL_Renderer, font: *Font, str: []const u8, posx:
                         (srcy + y) * compat_intCast(i32, font.bakedFontWidth))
                 ];
 
-                const r16 = compat_intCast(u16, (colour & 0x000000FF) >> 0);
-                const g16 = compat_intCast(u16, (colour & 0x0000FF00) >> 8);
-                const b16 = compat_intCast(u16, (colour & 0x00FF0000) >> 16);
-                const a16 = compat_intCast(u16, (colour & 0xFF000000) >> 24);
+                // break down fgRGBA 
+                const r16 = compat_intCast(u16, (fgRGBA & 0x000000FF) >> 0);
+                const g16 = compat_intCast(u16, (fgRGBA & 0x0000FF00) >> 8);
+                const b16 = compat_intCast(u16, (fgRGBA & 0x00FF0000) >> 16);
+                const a16 = compat_intCast(u16, (fgRGBA & 0xFF000000) >> 24);
 
-                const dr: u8 = @intCast((srcPixVal * r16) >> 8);
-                const dg: u8 = @intCast((srcPixVal * g16) >> 8);
-                const db: u8 = @intCast((srcPixVal * b16) >> 8);
-                const da: u8 = @intCast((srcPixVal * a16) >> 8);
+                // multiply by font pixel intensity
+                const fgr: u8 = @intCast((srcPixVal * r16) >> 8);
+                const fgg: u8 = @intCast((srcPixVal * g16) >> 8);
+                const fgb: u8 = @intCast((srcPixVal * b16) >> 8);
+                const fga: u8 = @intCast((srcPixVal * a16) >> 8);
 
-                _ = c.SDL_SetRenderDrawColor(renderer, dr, dg, db, da);
+                // break down bgRGBA
+                const bgr = compat_intCast(u16, (bgRGBA & 0x000000FF) >> 0);
+                const bgg = compat_intCast(u16, (bgRGBA & 0x0000FF00) >> 8);
+                const bgb = compat_intCast(u16, (bgRGBA & 0x00FF0000) >> 16);
+                const bga = compat_intCast(u16, (bgRGBA & 0xFF000000) >> 24);
+
+                // blend
+                const r2:u16 = fgr;
+                const g2:u16 = fgg;
+                const b2:u16 = fgb;
+                const a2:u16 = fga;
+                var r1:u16 = @intCast(bgr);
+                var g1:u16 = @intCast(bgg);
+                var b1:u16 = @intCast(bgb);
+                const a1:u16 = @intCast(bga);
+
+                r1 = (r1*(255 - a2) + r2*a2)/255; if (r1 > 255) r1 = 255;
+                g1 = (g1*(255 - a2) + g2*a2)/255; if (g1 > 255) g1 = 255;
+                b1 = (b1*(255 - a2) + b2*a2)/255; if (b1 > 255) b1 = 255;
+
+                _ = c.SDL_SetRenderDrawColor(renderer, @intCast(r1), @intCast(g1), @intCast(b1), @intCast(a1));
                 _ = c.SDL_RenderDrawPoint(renderer, dstx + x, dsty + y);
             }
         }
@@ -311,6 +333,19 @@ pub fn main() !void {
             for (0..ROWS) |y| {
                 for (0..COLS) |x| {
                     const cell = term.getCell(x, y);
+
+                    _ = c.SDL_SetRenderDrawColor(renderer,
+                        @intCast((cell.bgRGBA & 0x000000FF)),
+                        @intCast((cell.bgRGBA & 0x0000FF00) >> 8),
+                        @intCast((cell.bgRGBA & 0x00FF0000) >> 16),
+                    0xFF);
+                    var rect: c.SDL_Rect = undefined;
+                    rect.x = @intCast(x * FONTSIZE / 2);
+                    rect.y = @intCast(y * FONTSIZE);
+                    rect.w = FONTSIZE / 2;
+                    rect.h = FONTSIZE;
+                    _ = c.SDL_RenderFillRect(renderer, &rect);
+
                     if (cell.char) |ch| {
                         var font: *Font = &gFontSmall;
                         if (cell.bold) {
@@ -318,11 +353,10 @@ pub fn main() !void {
                         }
 
                         const yo: i32 = -4;
-                        drawString(renderer, font, &.{ch}, @intCast(x * FONTSIZE / 2), @as(i32, @intCast(y * FONTSIZE + FONTSIZE)) + yo, cell.fgRGBA);
+                        drawString(renderer, font, &.{ch}, @intCast(x * FONTSIZE / 2), @as(i32, @intCast(y * FONTSIZE + FONTSIZE)) + yo, cell.fgRGBA, cell.bgRGBA);
                     }
                     if (x == cursorPos.x and y == cursorPos.y) {
                         _ = c.SDL_SetRenderDrawColor(renderer, 0xFF, 0xFF, 0xFF, 0xFF);
-                        var rect: c.SDL_Rect = undefined;
                         rect.x = @intCast(x * FONTSIZE / 2);
                         rect.y = @intCast(y * FONTSIZE);
                         rect.w = FONTSIZE / 2;
