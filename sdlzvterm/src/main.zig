@@ -24,35 +24,35 @@ const WIDTH = COLS * FONTSIZE / 2;
 const HEIGHT = ROWS * FONTSIZE;
 
 const Keymap = struct {
-    keycode:c.SDL_Keycode,
+    keycode: c.SDL_Keycode,
     data: []const u8,
 };
 
 // ctrl + SDL key to escape codes
-const ctrlkeymap = [_]Keymap {
-    .{.keycode = c.SDLK_a, .data = "\x01"},
-    .{.keycode = c.SDLK_b, .data = "\x02"},
-    .{.keycode = c.SDLK_c, .data = "\x03"},
-    .{.keycode = c.SDLK_d, .data = "\x04"},
-    .{.keycode = c.SDLK_e, .data = "\x05"},
-    .{.keycode = c.SDLK_f, .data = "\x06"},
-    .{.keycode = c.SDLK_g, .data = "\x07"},
-    .{.keycode = c.SDLK_r, .data = "\x12"},
+const ctrlkeymap = [_]Keymap{
+    .{ .keycode = c.SDLK_a, .data = "\x01" },
+    .{ .keycode = c.SDLK_b, .data = "\x02" },
+    .{ .keycode = c.SDLK_c, .data = "\x03" },
+    .{ .keycode = c.SDLK_d, .data = "\x04" },
+    .{ .keycode = c.SDLK_e, .data = "\x05" },
+    .{ .keycode = c.SDLK_f, .data = "\x06" },
+    .{ .keycode = c.SDLK_g, .data = "\x07" },
+    .{ .keycode = c.SDLK_r, .data = "\x12" },
 };
 
 // SDL key to escape codes
-const keymap = [_]Keymap {
-    .{.keycode = c.SDLK_TAB, .data = "\t"}, 
-    .{.keycode = c.SDLK_ESCAPE, .data = "\x1b"}, 
-    .{.keycode = c.SDLK_BACKSPACE, .data = "\x7f"}, 
-    .{.keycode = c.SDLK_UP, .data = "\x1b[A"}, 
-    .{.keycode = c.SDLK_DOWN, .data = "\x1b[B"}, 
-    .{.keycode = c.SDLK_RIGHT, .data = "\x1b[C"}, 
-    .{.keycode = c.SDLK_LEFT, .data = "\x1b[D"}, 
-    .{.keycode = c.SDLK_PAGEUP, .data = "\x1b[5~"}, 
-    .{.keycode = c.SDLK_PAGEDOWN, .data = "\x1b[6~"}, 
-    .{.keycode = c.SDLK_RETURN, .data = "\r"},
-    .{.keycode = c.SDLK_RETURN2, .data = "\r"},
+const keymap = [_]Keymap{
+    .{ .keycode = c.SDLK_TAB, .data = "\t" },
+    .{ .keycode = c.SDLK_ESCAPE, .data = "\x1b" },
+    .{ .keycode = c.SDLK_BACKSPACE, .data = "\x7f" },
+    .{ .keycode = c.SDLK_UP, .data = "\x1b[A" },
+    .{ .keycode = c.SDLK_DOWN, .data = "\x1b[B" },
+    .{ .keycode = c.SDLK_RIGHT, .data = "\x1b[C" },
+    .{ .keycode = c.SDLK_LEFT, .data = "\x1b[D" },
+    .{ .keycode = c.SDLK_PAGEUP, .data = "\x1b[5~" },
+    .{ .keycode = c.SDLK_PAGEDOWN, .data = "\x1b[6~" },
+    .{ .keycode = c.SDLK_RETURN, .data = "\r" },
+    .{ .keycode = c.SDLK_RETURN2, .data = "\r" },
 };
 
 const FONT_NUMCHARS = 128;
@@ -139,7 +139,7 @@ pub fn drawString(renderer: *c.SDL_Renderer, font: *Font, str: []const u8, posx:
                         (srcy + y) * compat_intCast(i32, font.bakedFontWidth))
                 ];
 
-                // break down fgRGBA 
+                // break down fgRGBA
                 const r16 = compat_intCast(u16, (fgRGBA & 0x000000FF) >> 0);
                 const g16 = compat_intCast(u16, (fgRGBA & 0x0000FF00) >> 8);
                 const b16 = compat_intCast(u16, (fgRGBA & 0x00FF0000) >> 16);
@@ -158,18 +158,21 @@ pub fn drawString(renderer: *c.SDL_Renderer, font: *Font, str: []const u8, posx:
                 const bga = compat_intCast(u16, (bgRGBA & 0xFF000000) >> 24);
 
                 // blend
-                const r2:u16 = fgr;
-                const g2:u16 = fgg;
-                const b2:u16 = fgb;
-                const a2:u16 = fga;
-                var r1:u16 = @intCast(bgr);
-                var g1:u16 = @intCast(bgg);
-                var b1:u16 = @intCast(bgb);
-                const a1:u16 = @intCast(bga);
+                const r2: u16 = fgr;
+                const g2: u16 = fgg;
+                const b2: u16 = fgb;
+                const a2: u16 = fga;
+                var r1: u16 = @intCast(bgr);
+                var g1: u16 = @intCast(bgg);
+                var b1: u16 = @intCast(bgb);
+                const a1: u16 = @intCast(bga);
 
-                r1 = (r1*(255 - a2) + r2*a2)/255; if (r1 > 255) r1 = 255;
-                g1 = (g1*(255 - a2) + g2*a2)/255; if (g1 > 255) g1 = 255;
-                b1 = (b1*(255 - a2) + b2*a2)/255; if (b1 > 255) b1 = 255;
+                r1 = (r1 * (255 - a2) + r2 * a2) / 255;
+                if (r1 > 255) r1 = 255;
+                g1 = (g1 * (255 - a2) + g2 * a2) / 255;
+                if (g1 > 255) g1 = 255;
+                b1 = (b1 * (255 - a2) + b2 * a2) / 255;
+                if (b1 > 255) b1 = 255;
 
                 _ = c.SDL_SetRenderDrawColor(renderer, @intCast(r1), @intCast(g1), @intCast(b1), @intCast(a1));
                 _ = c.SDL_RenderDrawPoint(renderer, dstx + x, dsty + y);
@@ -277,13 +280,17 @@ pub fn main() !void {
                     if (event.key.keysym.mod & c.KMOD_CTRL > 0) {
                         for (ctrlkeymap) |km| {
                             if (km.keycode == event.key.keysym.sym) {
-                                _ = master_pt.write(km.data) catch {quit = true;};
+                                _ = master_pt.write(km.data) catch {
+                                    quit = true;
+                                };
                             }
                         }
                     }
                     for (keymap) |km| {
                         if (km.keycode == event.key.keysym.sym) {
-                            _ = master_pt.write(km.data) catch {quit = true;};
+                            _ = master_pt.write(km.data) catch {
+                                quit = true;
+                            };
                         }
                     }
                 },
@@ -320,11 +327,7 @@ pub fn main() !void {
                 for (0..COLS) |x| {
                     const cell = term.getCell(x, y);
 
-                    _ = c.SDL_SetRenderDrawColor(renderer,
-                        @intCast((cell.bgRGBA & 0x000000FF)),
-                        @intCast((cell.bgRGBA & 0x0000FF00) >> 8),
-                        @intCast((cell.bgRGBA & 0x00FF0000) >> 16),
-                    0xFF);
+                    _ = c.SDL_SetRenderDrawColor(renderer, @intCast((cell.bgRGBA & 0x000000FF)), @intCast((cell.bgRGBA & 0x0000FF00) >> 8), @intCast((cell.bgRGBA & 0x00FF0000) >> 16), 0xFF);
                     var rect: c.SDL_Rect = undefined;
                     rect.x = @intCast(x * FONTSIZE / 2);
                     rect.y = @intCast(y * FONTSIZE);
