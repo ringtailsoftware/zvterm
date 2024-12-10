@@ -16,6 +16,8 @@ const ttf = @cImport({
     @cInclude("stb_truetype.h");
 });
 
+const UGLY_POLL_TIME_MS = 5;    // burn CPU polling for IO
+
 const ROWS: usize = 24;
 const COLS: usize = 80;
 const FONTSIZE: usize = 16;
@@ -266,7 +268,7 @@ pub fn main() !void {
     c.SDL_StartTextInput();
 
     // Ugly, but works - add a timer pushing events so event loop constantly polls
-    _ = c.SDL_AddTimer(50, timer_cb, null);
+    _ = c.SDL_AddTimer(UGLY_POLL_TIME_MS, timer_cb, null);
 
     var quit = false;
     while (!quit) {
@@ -358,6 +360,6 @@ pub fn main() !void {
             c.SDL_RenderPresent(renderer);
         }
 
-        c.SDL_Delay(17);
+        c.SDL_Delay(UGLY_POLL_TIME_MS);
     }
 }
