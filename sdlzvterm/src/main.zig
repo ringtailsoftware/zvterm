@@ -209,12 +209,12 @@ const InputThreadData = struct {
 
 fn inputThreadFn(userdata: ?*anyopaque) callconv(.C) c_int {
     if (userdata) |p| {
-        var inputThreadData:*InputThreadData = @ptrCast(@alignCast(p));
+        var inputThreadData: *InputThreadData = @ptrCast(@alignCast(p));
 
         // poll for incoming data
         // write to term
         // signal SDL to wake main loop
-        while(!inputThreadData.quit) {
+        while (!inputThreadData.quit) {
             var fds = [_]std.posix.pollfd{
                 .{
                     .fd = inputThreadData.file.handle,
