@@ -73,10 +73,14 @@ fn moverectFn(dest: terminal.VTermRect, src: terminal.VTermRect, user: ?*anyopaq
 }
 
 fn movecursorFn(pos: terminal.VTermPos, oldpos: terminal.VTermPos, visible: c_int, user: ?*anyopaque) callconv(.C) c_int {
+    if (user) |userptr| {
+        const self: *ZVTerm = @ptrCast(@alignCast(userptr));
+        self.damage = true;
+    }
+
     _ = pos;
     _ = oldpos;
     _ = visible;
-    _ = user;
     //_ = std.debug.print("movecursor\n", .{}) catch 0;
     return 0;
 }
