@@ -16,8 +16,6 @@ const ttf = @cImport({
     @cInclude("stb_truetype.h");
 });
 
-const minFrameTime = 10;    // minimum delay before redraw
-
 const ROWS: usize = 24;
 const COLS: usize = 80;
 const FONTSIZE: usize = 16;
