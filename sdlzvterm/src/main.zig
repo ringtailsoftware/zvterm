@@ -18,6 +18,7 @@ const ttf = @cImport({
 
 const ROWS: usize = 24;
 const COLS: usize = 80;
+const SCALE: usize = 1;     // SDL renderer upscale
 const FONTSIZE: usize = 16;
 
 const WIDTH = COLS * FONTSIZE / 2;
@@ -260,7 +261,7 @@ pub fn main() !void {
     }
     defer c.SDL_Quit();
 
-    const screen = c.SDL_CreateWindow("SDLZVTerm", c.SDL_WINDOWPOS_UNDEFINED, c.SDL_WINDOWPOS_UNDEFINED, WIDTH, HEIGHT, c.SDL_WINDOW_OPENGL) orelse
+    const screen = c.SDL_CreateWindow("SDLZVTerm", c.SDL_WINDOWPOS_UNDEFINED, c.SDL_WINDOWPOS_UNDEFINED, WIDTH*SCALE, HEIGHT*SCALE, c.SDL_WINDOW_OPENGL) orelse
         {
         c.SDL_Log("Unable to create window: %s", c.SDL_GetError());
         return error.SDLInitializationFailed;
@@ -272,6 +273,8 @@ pub fn main() !void {
         return error.SDLInitializationFailed;
     };
     defer c.SDL_DestroyRenderer(renderer);
+
+    _ = c.SDL_RenderSetScale(renderer, SCALE, SCALE);
 
     term = try ZVTerm.init(allocator, 80, 24);
     defer term.deinit();
