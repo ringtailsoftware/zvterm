@@ -16,7 +16,7 @@ const ttf = @cImport({
     @cInclude("stb_truetype.h");
 });
 
-const UGLY_POLL_TIME_MS = 5;    // burn CPU polling for IO
+const minFrameTime = 10;    // minimum delay before redraw
 
 const ROWS: usize = 24;
 const COLS: usize = 80;
@@ -203,21 +203,50 @@ pub fn drawString(renderer: *c.SDL_Renderer, font: *Font, str: []const u8, posx:
     }
 }
 
-fn timer_cb(interval: u32, userdata: ?*anyopaque) callconv(.C) u32 {
-    _ = userdata;
-    var event: c.SDL_Event = undefined;
-    var userevent: c.SDL_UserEvent = undefined;
+const InputThreadData = struct {
+    file: std.fs.File,
+    writer: ZVTerm.TermWriter.Writer,
+    quit: bool,
+};
 
-    userevent.type = c.SDL_USEREVENT;
-    userevent.code = 0;
-    userevent.data1 = c.NULL;
-    userevent.data2 = c.NULL;
+fn inputThreadFn(userdata: ?*anyopaque) callconv(.C) c_int {
+    if (userdata) |p| {
+        var inputThreadData:*InputThreadData = @ptrCast(@alignCast(p));
 
-    event.type = c.SDL_USEREVENT;
-    event.user = userevent;
-
-    _ = c.SDL_PushEvent(&event);
-    return interval;
+        // poll for incoming data
+        // write to term
+        // signal SDL to wake main loop
+        while(!inputThreadData.quit) {
+            var fds = [_]std.posix.pollfd{
+                .{
+                    .fd = inputThreadData.file.handle,
+                    .events = std.posix.POLL.IN,
+                    .revents = undefined,
+                },
+            };
+            const ready = std.posix.poll(&fds, 1000) catch 0;
+            if (ready == 1) {
+                var buf: [4096]u8 = undefined;
+                const count = inputThreadData.file.read(&buf) catch 0;
+                if (count > 0) {
+                    _ = inputThreadData.writer.write(buf[0..count]) catch 0;
+                } else {
+                    inputThreadData.quit = true;
+                }
+                // wake SDL
+                var event: c.SDL_Event = undefined;
+                var userevent: c.SDL_UserEvent = undefined;
+                userevent.type = c.SDL_USEREVENT;
+                userevent.code = 0;
+                userevent.data1 = c.NULL;
+                userevent.data2 = c.NULL;
+                event.type = c.SDL_USEREVENT;
+                event.user = userevent;
+                _ = c.SDL_PushEvent(&event);
+            }
+        }
+    }
+    return 0;
 }
 
 pub fn main() !void {
@@ -287,16 +316,26 @@ pub fn main() !void {
 
     c.SDL_StartTextInput();
 
-    // Ugly, but works - add a timer pushing events so event loop constantly polls
-    _ = c.SDL_AddTimer(UGLY_POLL_TIME_MS, timer_cb, null);
+    var inputThreadData = InputThreadData{
+        .file = master_pt,
+        .writer = termwriter,
+        .quit = false,
+    };
+    const inputThread = c.SDL_CreateThread(inputThreadFn, "inputThread", @ptrCast(&inputThreadData));
 
     var quit = false;
     while (!quit) {
         var event: c.SDL_Event = undefined;
-        while (c.SDL_PollEvent(&event) != 0) {
+        while (c.SDL_WaitEvent(&event) != 0) {
+            // if inputthread requests a quit, also exit main loop
+            if (inputThreadData.quit) {
+                quit = true;
+                break;
+            }
             switch (event.type) {
                 c.SDL_QUIT => {
                     quit = true;
+                    break;
                 },
                 c.SDL_KEYDOWN => {
                     if (event.key.keysym.mod & c.KMOD_CTRL > 0) {
@@ -324,62 +363,51 @@ pub fn main() !void {
                 else => {},
             }
 
-            var fds = [_]std.posix.pollfd{
-                .{
-                    .fd = master_pt.handle,
-                    .events = std.posix.POLL.IN,
-                    .revents = undefined,
-                },
-            };
-            const ready = try std.posix.poll(&fds, 0);
-            if (ready == 1) {
-                var buf: [4096]u8 = undefined;
-                const count = try master_pt.read(&buf);
-                if (count > 0) {
-                    _ = try termwriter.write(buf[0..count]);
-                }
-            }
+            if (term.damage) {
+                term.damage = false;
+                _ = c.SDL_SetRenderDrawColor(renderer, 0x00, 0x00, 0x00, 0xFF);
+                _ = c.SDL_RenderClear(renderer);
 
-            _ = c.SDL_SetRenderDrawColor(renderer, 0x00, 0x00, 0x00, 0xFF);
-            _ = c.SDL_RenderClear(renderer);
+                const cursorPos = term.getCursorPos();
 
-            const cursorPos = term.getCursorPos();
+                for (0..ROWS) |y| {
+                    for (0..COLS) |x| {
+                        const cell = term.getCell(x, y);
 
-            for (0..ROWS) |y| {
-                for (0..COLS) |x| {
-                    const cell = term.getCell(x, y);
-
-                    _ = c.SDL_SetRenderDrawColor(renderer, @intCast((cell.bgRGBA & 0x000000FF)), @intCast((cell.bgRGBA & 0x0000FF00) >> 8), @intCast((cell.bgRGBA & 0x00FF0000) >> 16), 0xFF);
-                    var rect: c.SDL_Rect = undefined;
-                    rect.x = @intCast(x * FONTSIZE / 2);
-                    rect.y = @intCast(y * FONTSIZE);
-                    rect.w = FONTSIZE / 2;
-                    rect.h = FONTSIZE;
-                    _ = c.SDL_RenderFillRect(renderer, &rect);
-
-                    if (cell.char) |ch| {
-                        var font: *Font = &gFontSmall;
-                        if (cell.bold) {
-                            font = &gFontSmallBold;
-                        }
-
-                        const yo: i32 = -4;
-                        drawString(renderer, font, &.{ch}, @intCast(x * FONTSIZE / 2), @as(i32, @intCast(y * FONTSIZE + FONTSIZE)) + yo, cell.fgRGBA, cell.bgRGBA);
-                    }
-                    if (term.cursorvisible and x == cursorPos.x and y == cursorPos.y) {
-                        _ = c.SDL_SetRenderDrawColor(renderer, 0xFF, 0xFF, 0xFF, 0xFF);
+                        _ = c.SDL_SetRenderDrawColor(renderer, @intCast((cell.bgRGBA & 0x000000FF)), @intCast((cell.bgRGBA & 0x0000FF00) >> 8), @intCast((cell.bgRGBA & 0x00FF0000) >> 16), 0xFF);
+                        var rect: c.SDL_Rect = undefined;
                         rect.x = @intCast(x * FONTSIZE / 2);
                         rect.y = @intCast(y * FONTSIZE);
                         rect.w = FONTSIZE / 2;
                         rect.h = FONTSIZE;
                         _ = c.SDL_RenderFillRect(renderer, &rect);
+
+                        if (cell.char) |ch| {
+                            var font: *Font = &gFontSmall;
+                            if (cell.bold) {
+                                font = &gFontSmallBold;
+                            }
+
+                            const yo: i32 = -4;
+                            drawString(renderer, font, &.{ch}, @intCast(x * FONTSIZE / 2), @as(i32, @intCast(y * FONTSIZE + FONTSIZE)) + yo, cell.fgRGBA, cell.bgRGBA);
+                        }
+                        if (term.cursorvisible and x == cursorPos.x and y == cursorPos.y) {
+                            _ = c.SDL_SetRenderDrawColor(renderer, 0xFF, 0xFF, 0xFF, 0xFF);
+                            rect.x = @intCast(x * FONTSIZE / 2);
+                            rect.y = @intCast(y * FONTSIZE);
+                            rect.w = FONTSIZE / 2;
+                            rect.h = FONTSIZE;
+                            _ = c.SDL_RenderFillRect(renderer, &rect);
+                        }
                     }
                 }
+
+                c.SDL_RenderPresent(renderer);
             }
-
-            c.SDL_RenderPresent(renderer);
         }
-
-        c.SDL_Delay(UGLY_POLL_TIME_MS);
     }
+
+    // signal inputthread to stop
+    inputThreadData.quit = true;
+    c.SDL_DetachThread(@constCast(inputThread));
 }
