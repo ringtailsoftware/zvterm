@@ -54,8 +54,12 @@ fn output_callback(s: [*c]const u8, len: usize, user: ?*anyopaque) callconv(.C) 
 }
 
 fn damageFn(rect: terminal.VTermRect, user: ?*anyopaque) callconv(.C) c_int {
+    if (user) |userptr| {
+        const self: *ZVTerm = @ptrCast(@alignCast(userptr));
+        self.damage = true;
+    }
+
     _ = rect;
-    _ = user;
     //_ = std.debug.print("damage\n", .{}) catch 0;
     return 0;
 }
@@ -153,6 +157,7 @@ pub const ZVTerm = struct {
     vtw: TermWriter,
     allocator: std.mem.Allocator,
     cursorvisible: bool,
+    damage: bool,
 
     pub const TermWriter = struct {
         pub const Writer = std.io.Writer(
@@ -207,6 +212,7 @@ pub const ZVTerm = struct {
             .height = height,
             .vtw = undefined,
             .cursorvisible = true,
+            .damage = true,
         };
 
         // use builder interface, so we can supply malloc/free
