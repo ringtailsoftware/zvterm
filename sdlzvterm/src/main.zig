@@ -134,7 +134,7 @@ pub fn drawString(renderer: *c.SDL_Renderer, font: *Font, str: []const u8, posx:
     var starty: f32 = compat_intToFloat(f32, posy);
 
     for (str) |b| {
-        if (b - FONT_FIRSTCHAR > FONT_NUMCHARS) {
+        if (b < FONT_FIRSTCHAR or b > FONT_FIRSTCHAR + FONT_NUMCHARS) {
             continue;
         }
 
