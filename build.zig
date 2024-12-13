@@ -9,18 +9,7 @@ pub fn build(b: *std.Build) void {
     });
 
     zvterm_mod.addCSourceFiles(.{
-        .files = &.{
-            "src/libvterm/terminal.c",
-            "src/libvterm/encoding.c",
-            "src/libvterm/mouse.c",
-            "src/libvterm/pen.c",
-            "src/libvterm/state.c",
-            "src/libvterm/vterm.c",
-            "src/libvterm/keyboard.c",
-            "src/libvterm/parser.c",
-            "src/libvterm/screen.c",
-            "src/libvterm/unicode.c"
-        },
+        .files = &.{ "src/libvterm/terminal.c", "src/libvterm/encoding.c", "src/libvterm/mouse.c", "src/libvterm/pen.c", "src/libvterm/state.c", "src/libvterm/vterm.c", "src/libvterm/keyboard.c", "src/libvterm/parser.c", "src/libvterm/screen.c", "src/libvterm/unicode.c" },
         .flags = &.{"-Wall"},
     });
     zvterm_mod.addIncludePath(b.path("src/"));

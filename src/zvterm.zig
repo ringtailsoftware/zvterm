@@ -186,9 +186,19 @@ pub const ZVTerm = struct {
         }
     };
 
-    pub const ZVTermCell = struct {
-        fgRGBA: u32,
-        bgRGBA: u32,
+    pub const Cell = struct {
+        pub const RGBACol = packed union {
+            raw: u32,
+            rgba: packed struct {
+                r: u8,
+                g: u8,
+                b: u8,
+                a: u8,
+            },
+        };
+
+        fg: RGBACol,
+        bg: RGBACol,
         bold: bool,
         char: ?u8,
     };
@@ -250,15 +260,15 @@ pub const ZVTerm = struct {
         };
     }
 
-    pub fn getCell(self: *Self, x: usize, y: usize) ZVTermCell {
+    pub fn getCell(self: *Self, x: usize, y: usize) Cell {
         const pos: terminal.VTermPos = .{ .row = @intCast(y), .col = @intCast(x) };
         var cell: terminal.VTermScreenCell = undefined;
         _ = terminal.vterm_screen_get_cell(self.screen, pos, &cell);
 
-        var zvtc: ZVTermCell = .{
+        var zvtc: Cell = .{
             .char = null,
-            .fgRGBA = 0,
-            .bgRGBA = 0,
+            .fg = .{ .rgba = .{ .r = 0, .g = 0, .b = 0, .a = 0xFF } },
+            .bg = .{ .rgba = .{ .r = 0, .g = 0, .b = 0, .a = 0xFF } },
             .bold = false,
         };
 
@@ -271,20 +281,26 @@ pub const ZVTerm = struct {
             terminal.vterm_screen_convert_color_to_rgb(self.screen, &cell.fg);
         }
         if (terminal.VTERM_COLOR_IS_RGB(&cell.fg)) {
-            zvtc.fgRGBA = @as(u32, @intCast(0xFF)) << 24 | @as(u32, @intCast(cell.fg.rgb.blue)) << 16 | @as(u32, @intCast(cell.fg.rgb.green)) << 8 | @as(u32, @intCast(cell.fg.rgb.red));
+            zvtc.fg.rgba.r = cell.fg.rgb.red;
+            zvtc.fg.rgba.g = cell.fg.rgb.green;
+            zvtc.fg.rgba.b = cell.fg.rgb.blue;
+            zvtc.fg.rgba.a = 0xFF;
         }
         if (terminal.VTERM_COLOR_IS_INDEXED(&cell.bg)) {
             terminal.vterm_screen_convert_color_to_rgb(self.screen, &cell.bg);
         }
         if (terminal.VTERM_COLOR_IS_RGB(&cell.bg)) {
-            zvtc.bgRGBA = @as(u32, @intCast(0xFF)) << 24 | @as(u32, @intCast(cell.bg.rgb.blue)) << 16 | @as(u32, @intCast(cell.bg.rgb.green)) << 8 | @as(u32, @intCast(cell.bg.rgb.red));
+            zvtc.bg.rgba.r = cell.bg.rgb.red;
+            zvtc.bg.rgba.g = cell.bg.rgb.green;
+            zvtc.bg.rgba.b = cell.bg.rgb.blue;
+            zvtc.bg.rgba.a = 0xFF;
         }
 
         zvtc.bold = cell.attrs.bold > 0;
         if (cell.attrs.reverse > 0) { // flip colours
-            const tmp = zvtc.bgRGBA;
-            zvtc.bgRGBA = zvtc.fgRGBA;
-            zvtc.fgRGBA = tmp;
+            const tmp = zvtc.bg;
+            zvtc.bg = zvtc.fg;
+            zvtc.fg = tmp;
         }
 
         return zvtc;

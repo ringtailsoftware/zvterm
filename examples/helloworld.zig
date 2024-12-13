@@ -15,7 +15,7 @@ pub fn main() !void {
     try writer.print("\x1b[10;10HHello world", .{});
 
     // move cursor to x=10,y=12 and write in red
-    try writer.print("\x1B[31m\x1b[12;10HThese cells contain red in .fgRGBA", .{});
+    try writer.print("\x1B[31m\x1b[12;10HThese cells contain red in .fg", .{});
 
     const stdout = std.io.getStdOut().writer();
 
@@ -24,8 +24,8 @@ pub fn main() !void {
     for (0..term.height) |y| {
         for (0..term.width) |x| {
             const cell = term.getCell(x, y);
-            // cell.fgRGBA:u32 holds cell foreground colour
-            // cell.bgRGBA:u32 holds cell foreground colour
+            // cell.fg holds cell foreground colour
+            // cell.bg holds cell foreground colour
             // cell.bold:bool holds bold style 
 
             if (cell.char) |c| {

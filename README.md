@@ -23,7 +23,7 @@ See `sdlzvterm/` for a janky terminal implementation in SDL.
     for (0..term.height) |y| {
         for (0..term.width) |x| {
             const cell = term.getCell(x, y);
-            // paint cell.char:u8 using cell.fgRGBA:u32 and cell.bgRGBA:u32 colours
+            // paint cell.char:u8 using cell.fg and cell.bg colours
             ...
         }
     }
@@ -61,8 +61,7 @@ exe.root_module.addImport("zvterm", zvterm_dep.module("zvterm"));
 There's plenty to add in order to make a real terminal emulator. libvterm is capable, but the zig API needs extending to do more
 
  - unicode
- - cursor location
  - bell
- - handle callbacks for dirty areas, to avoid constantly redrawing entire screen
+ - more selective damage callbacks to know which areas of screen to redraw
 
 

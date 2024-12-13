@@ -6,9 +6,7 @@
             .url = "git+https://github.com/allyourcodebase/SDL.git#fe896e655b24890f5e13ba8b740ebe0e20c4a23b",
             .hash = "1220503f94b77f9c057139384cc37f020c291208f7bdee60285c71b315961cf717bd",
         },
-        .zvterm = .{
-            .path = ".."
-        },
+        .zvterm = .{ .path = ".." },
     },
     .paths = .{
         "LICENSE",
