@@ -18,7 +18,7 @@ const ttf = @cImport({
 
 const ROWS: usize = 24;
 const COLS: usize = 80;
-const SCALE: usize = 1;     // SDL renderer upscale
+const SCALE: usize = 1; // SDL renderer upscale
 const FONTSIZE: usize = 16;
 
 const WIDTH = COLS * FONTSIZE / 2;
@@ -129,7 +129,7 @@ pub const Font = struct {
     }
 };
 
-pub fn drawString(renderer: *c.SDL_Renderer, font: *Font, str: []const u8, posx: i32, posy: i32, fgRGBA: u32, bgRGBA: u32) void {
+pub fn drawString(renderer: *c.SDL_Renderer, font: *Font, str: []const u8, posx: i32, posy: i32, fg: ZVTerm.Cell.RGBACol, bg: ZVTerm.Cell.RGBACol) void {
     var startx: f32 = compat_intToFloat(f32, posx);
     var starty: f32 = compat_intToFloat(f32, posy);
 
@@ -161,10 +161,10 @@ pub fn drawString(renderer: *c.SDL_Renderer, font: *Font, str: []const u8, posx:
                 ];
 
                 // break down fgRGBA
-                const r16 = compat_intCast(u16, (fgRGBA & 0x000000FF) >> 0);
-                const g16 = compat_intCast(u16, (fgRGBA & 0x0000FF00) >> 8);
-                const b16 = compat_intCast(u16, (fgRGBA & 0x00FF0000) >> 16);
-                const a16 = compat_intCast(u16, (fgRGBA & 0xFF000000) >> 24);
+                const r16: u16 = @intCast(fg.rgba.r);
+                const g16: u16 = @intCast(fg.rgba.g);
+                const b16: u16 = @intCast(fg.rgba.b);
+                const a16: u16 = @intCast(fg.rgba.a);
 
                 // multiply by font pixel intensity
                 const fgr: u8 = @intCast((srcPixVal * r16) >> 8);
@@ -173,10 +173,10 @@ pub fn drawString(renderer: *c.SDL_Renderer, font: *Font, str: []const u8, posx:
                 const fga: u8 = @intCast((srcPixVal * a16) >> 8);
 
                 // break down bgRGBA
-                const bgr = compat_intCast(u16, (bgRGBA & 0x000000FF) >> 0);
-                const bgg = compat_intCast(u16, (bgRGBA & 0x0000FF00) >> 8);
-                const bgb = compat_intCast(u16, (bgRGBA & 0x00FF0000) >> 16);
-                const bga = compat_intCast(u16, (bgRGBA & 0xFF000000) >> 24);
+                const bgr: u16 = @intCast(bg.rgba.r);
+                const bgg: u16 = @intCast(bg.rgba.g);
+                const bgb: u16 = @intCast(bg.rgba.b);
+                const bga: u16 = @intCast(bg.rgba.a);
 
                 // blend
                 const r2: u16 = fgr;
@@ -261,7 +261,7 @@ pub fn main() !void {
     }
     defer c.SDL_Quit();
 
-    const screen = c.SDL_CreateWindow("SDLZVTerm", c.SDL_WINDOWPOS_UNDEFINED, c.SDL_WINDOWPOS_UNDEFINED, WIDTH*SCALE, HEIGHT*SCALE, c.SDL_WINDOW_OPENGL) orelse
+    const screen = c.SDL_CreateWindow("SDLZVTerm", c.SDL_WINDOWPOS_UNDEFINED, c.SDL_WINDOWPOS_UNDEFINED, WIDTH * SCALE, HEIGHT * SCALE, c.SDL_WINDOW_OPENGL) orelse
         {
         c.SDL_Log("Unable to create window: %s", c.SDL_GetError());
         return error.SDLInitializationFailed;
@@ -388,8 +388,7 @@ pub fn main() !void {
                 for (0..ROWS) |y| {
                     for (0..COLS) |x| {
                         const cell = term.getCell(x, y);
-
-                        _ = c.SDL_SetRenderDrawColor(renderer, @intCast((cell.bgRGBA & 0x000000FF)), @intCast((cell.bgRGBA & 0x0000FF00) >> 8), @intCast((cell.bgRGBA & 0x00FF0000) >> 16), 0xFF);
+                        _ = c.SDL_SetRenderDrawColor(renderer, cell.bg.rgba.r, cell.bg.rgba.g, cell.bg.rgba.b, 0xFF);
                         var rect: c.SDL_Rect = undefined;
                         rect.x = @intCast(x * FONTSIZE / 2);
                         rect.y = @intCast(y * FONTSIZE);
@@ -404,7 +403,7 @@ pub fn main() !void {
                             }
 
                             const yo: i32 = -4;
-                            drawString(renderer, font, &.{ch}, @intCast(x * FONTSIZE / 2), @as(i32, @intCast(y * FONTSIZE + FONTSIZE)) + yo, cell.fgRGBA, cell.bgRGBA);
+                            drawString(renderer, font, &.{ch}, @intCast(x * FONTSIZE / 2), @as(i32, @intCast(y * FONTSIZE + FONTSIZE)) + yo, cell.fg, cell.bg);
                         }
                         if (term.cursorvisible and x == cursorPos.x and y == cursorPos.y) {
                             _ = c.SDL_SetRenderDrawColor(renderer, 0xFF, 0xFF, 0xFF, 0xFF);
