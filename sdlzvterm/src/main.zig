@@ -323,7 +323,8 @@ pub fn main() !void {
     };
 
     // Set terminal size. Hack to pass 64bit ioctl op as c_int in Darwin
-    const TIOCSWINSZ = if (std.Target.Os.Tag.isDarwin(builtin.target.os.tag)) -2146929561 else std.posix.T.IOCSWINSZ; // //0x80087467 -> c_int
+    const IOCSWINSZ:u64 = 0x80087467;
+    const TIOCSWINSZ = if (std.Target.Os.Tag.isDarwin(builtin.target.os.tag)) @as(c_int, @truncate(@as(i64, @bitCast(IOCSWINSZ)))) else std.posix.T.IOCSWINSZ;
     const err = std.posix.system.ioctl(master_pt.handle, TIOCSWINSZ, @intFromPtr(&ws));
     if (std.posix.errno(err) != .SUCCESS) {
         return error.SetTerminalSizeErr;
