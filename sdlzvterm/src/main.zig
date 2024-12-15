@@ -315,6 +315,20 @@ pub fn main() !void {
         std.process.cleanExit();
     }
 
+    var ws: std.posix.winsize = .{
+        .ws_col = @intCast(COLS),
+        .ws_row = @intCast(ROWS),
+        .ws_xpixel = 1,
+        .ws_ypixel = 1,
+    };
+
+    // Set terminal size. Hack to pass 64bit ioctl op as c_int in Darwin
+    const TIOCSWINSZ = if (std.Target.Os.Tag.isDarwin(builtin.target.os.tag)) -2146929561 else std.posix.T.IOCSWINSZ; // //0x80087467 -> c_int
+    const err = std.posix.system.ioctl(master_pt.handle, TIOCSWINSZ, @intFromPtr(&ws));
+    if (std.posix.errno(err) != .SUCCESS) {
+        return error.SetTerminalSizeErr;
+    }
+
     c.SDL_StartTextInput();
 
     var inputThreadData = InputThreadData{
