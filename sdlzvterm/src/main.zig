@@ -18,8 +18,9 @@ const COLS: usize = 80;
 const SCALE: usize = 1; // SDL renderer upscale
 const FONTSIZE: usize = 16;
 
-const WIDTH = COLS * FONTSIZE / 2;
-const HEIGHT = ROWS * FONTSIZE;
+const BORDER = 16;
+const WIDTH = (COLS * FONTSIZE / 2) + BORDER;
+const HEIGHT = (ROWS * FONTSIZE) + BORDER;
 
 const Keymap = struct {
     keycode: c.SDL_Keycode,
@@ -79,116 +80,80 @@ const FONT_FIRSTCHAR = ' ';
 var term: *ZVTerm = undefined;
 var termwriter: ZVTerm.TermWriter.Writer = undefined;
 
-// FIXME
-fn compat_intCast(comptime T: type, value: anytype) T {
-    return @as(T, @intCast(value));
-}
-
-fn compat_intToFloat(comptime T: type, value: anytype) T {
-    return @as(T, @floatFromInt(value));
-}
-
-pub fn drawString(allocator: std.mem.Allocator, renderer: *c.SDL_Renderer, font: *const TrueType, str: []const u8, posx: i32, posy: i32, fg: ZVTerm.Cell.RGBACol, bg: ZVTerm.Cell.RGBACol) !void {
-
-_ = renderer;
-_ = posx;
-_ = posy;
-_ = fg;
-_ = bg;
-
+pub fn drawString(gpa: std.mem.Allocator, renderer: *c.SDL_Renderer, font: *const TrueType, str: []const u8, posx: i32, posy: i32, fg: ZVTerm.Cell.RGBACol, bg: ZVTerm.Cell.RGBACol) !void {
     const scale = font.scaleForPixelHeight(FONTSIZE);
-    var buffer: std.ArrayListUnmanaged(u8) = undefined;
-    defer buffer.deinit(allocator);
-    const stdout = std.io.getStdOut().writer();
-    var view = try std.unicode.Utf8View.init(str);
-    var it = view.iterator();
-    while (it.nextCodepoint()) |codepoint| {
-        if (font.codepointGlyphIndex(codepoint)) |glyph| {
-            std.log.debug("0x{d}: {d}", .{ codepoint, glyph });
-            buffer.clearRetainingCapacity();
-            const dims = try font.glyphBitmap(allocator, &buffer, glyph, scale, scale);
+
+    for (str) |b| {
+        if (b < FONT_FIRSTCHAR or b > FONT_FIRSTCHAR + FONT_NUMCHARS) {
+            continue;
+        }
+
+        var buffer = std.ArrayListUnmanaged(u8){};
+        defer buffer.deinit(gpa);
+        buffer.clearRetainingCapacity();
+        if (font.codepointGlyphIndex(b)) |glyph| {
+            const dims = font.glyphBitmap(gpa, &buffer, glyph, scale, scale) catch continue;
             const pixels = buffer.items;
-            for (0..dims.height) |j| {
-                for (0..dims.width) |i| {
-                    try stdout.writeByte(" .:ioVM@"[pixels[j * dims.width + i] >> 5]);
+
+            var y: i32 = 0;
+            while (y < dims.height) : (y += 1) {
+                var x: i32 = 0;
+                while (x < dims.width) : (x += 1) {
+                    const srcPixVal: u8 = pixels[@intCast(x + y * dims.width)];
+
+                    // break down fgRGBA
+                    const r16: u16 = @intCast(fg.rgba.r);
+                    const g16: u16 = @intCast(fg.rgba.g);
+                    const b16: u16 = @intCast(fg.rgba.b);
+                    const a16: u16 = @intCast(fg.rgba.a);
+
+                    // multiply by font pixel intensity
+                    const fgr: u8 = @intCast((srcPixVal * r16) >> 8);
+                    const fgg: u8 = @intCast((srcPixVal * g16) >> 8);
+                    const fgb: u8 = @intCast((srcPixVal * b16) >> 8);
+                    const fga: u8 = @intCast((srcPixVal * a16) >> 8);
+
+                    // break down bgRGBA
+                    const bgr: u16 = @intCast(bg.rgba.r);
+                    const bgg: u16 = @intCast(bg.rgba.g);
+                    const bgb: u16 = @intCast(bg.rgba.b);
+                    const bga: u16 = @intCast(bg.rgba.a);
+
+                    // blend
+                    const r2: u16 = fgr;
+                    const g2: u16 = fgg;
+                    const b2: u16 = fgb;
+                    const a2: u16 = fga;
+                    var r1: u16 = @intCast(bgr);
+                    var g1: u16 = @intCast(bgg);
+                    var b1: u16 = @intCast(bgb);
+                    const a1: u16 = @intCast(bga);
+
+                    r1 = (r1 * (255 - a2) + r2 * a2) / 255;
+                    if (r1 > 255) r1 = 255;
+                    g1 = (g1 * (255 - a2) + g2 * a2) / 255;
+                    if (g1 > 255) g1 = 255;
+                    b1 = (b1 * (255 - a2) + b2 * a2) / 255;
+                    if (b1 > 255) b1 = 255;
+
+                    _ = c.SDL_SetRenderDrawColor(renderer, @intCast(r1), @intCast(g1), @intCast(b1), @intCast(a1));
+                    const ptx = posx + x + dims.off_x;
+                    const pty = posy + y + dims.off_y;
+//                    if (pty >= HEIGHT - BORDER/2) {
+//                        pty = (HEIGHT - BORDER/2) - 1;
+//                    }
+//                    if (ptx >= WIDTH - BORDER/2) {
+//                        ptx = (WIDTH - BORDER/2) - 1;
+//                    }
+//                    std.debug.assert(ptx >= BORDER/2);
+//                    std.debug.assert(pty >= BORDER/2);
+//                    std.debug.assert(ptx < WIDTH - BORDER/2);
+//                    std.debug.assert(pty < HEIGHT - BORDER/2);
+                    _ = c.SDL_RenderDrawPoint(renderer, ptx, pty);
                 }
-                try stdout.writeByte('\n');
             }
-        } else {
-            std.log.debug("0x{d}: none", .{codepoint});
         }
     }
-
-//    var startx: f32 = compat_intToFloat(f32, posx);
-//    var starty: f32 = compat_intToFloat(f32, posy);
-//
-//    for (str) |b| {
-//        if (b < FONT_FIRSTCHAR or b > FONT_FIRSTCHAR + FONT_NUMCHARS) {
-//            continue;
-//        }
-//
-//        var q: ttf.stbtt_aligned_quad = undefined;
-//        ttf.stbtt_GetBakedQuad(font.bakedChars.ptr, compat_intCast(c_int, font.bakedFontWidth), compat_intCast(c_int, font.bakedFontHeight), b - FONT_FIRSTCHAR, &startx, &starty, &q, 1);
-//
-//        const dstx: i32 = @intFromFloat(q.x0);
-//        const dsty: i32 = @intFromFloat(q.y0);
-//
-//        const srcx: i32 = @intFromFloat(q.s0 * @as(f32, @floatFromInt(font.bakedFontWidth)));
-//        const srcy: i32 = @intFromFloat(q.t0 * @as(f32, @floatFromInt(font.bakedFontHeight)));
-//        const srcw: i32 = @intFromFloat((q.s1 - q.s0) * @as(f32, @floatFromInt(font.bakedFontWidth)));
-//        const srch: i32 = @intFromFloat((q.t1 - q.t0) * @as(f32, @floatFromInt(font.bakedFontHeight)));
-//
-//        // srcw,srch == dstw,dsth (but stride is different, src is 8bpp, dst is 32bpp)
-//
-//        var y: i32 = 0;
-//        while (y < srch) : (y += 1) {
-//            var x: i32 = 0;
-//            while (x < srcw) : (x += 1) {
-//                const srcPixVal: u8 = font.bakedFont[
-//                    compat_intCast(usize, (srcx + x) +
-//                        (srcy + y) * compat_intCast(i32, font.bakedFontWidth))
-//                ];
-//
-//                // break down fgRGBA
-//                const r16: u16 = @intCast(fg.rgba.r);
-//                const g16: u16 = @intCast(fg.rgba.g);
-//                const b16: u16 = @intCast(fg.rgba.b);
-//                const a16: u16 = @intCast(fg.rgba.a);
-//
-//                // multiply by font pixel intensity
-//                const fgr: u8 = @intCast((srcPixVal * r16) >> 8);
-//                const fgg: u8 = @intCast((srcPixVal * g16) >> 8);
-//                const fgb: u8 = @intCast((srcPixVal * b16) >> 8);
-//                const fga: u8 = @intCast((srcPixVal * a16) >> 8);
-//
-//                // break down bgRGBA
-//                const bgr: u16 = @intCast(bg.rgba.r);
-//                const bgg: u16 = @intCast(bg.rgba.g);
-//                const bgb: u16 = @intCast(bg.rgba.b);
-//                const bga: u16 = @intCast(bg.rgba.a);
-//
-//                // blend
-//                const r2: u16 = fgr;
-//                const g2: u16 = fgg;
-//                const b2: u16 = fgb;
-//                const a2: u16 = fga;
-//                var r1: u16 = @intCast(bgr);
-//                var g1: u16 = @intCast(bgg);
-//                var b1: u16 = @intCast(bgb);
-//                const a1: u16 = @intCast(bga);
-//
-//                r1 = (r1 * (255 - a2) + r2 * a2) / 255;
-//                if (r1 > 255) r1 = 255;
-//                g1 = (g1 * (255 - a2) + g2 * a2) / 255;
-//                if (g1 > 255) g1 = 255;
-//                b1 = (b1 * (255 - a2) + b2 * a2) / 255;
-//                if (b1 > 255) b1 = 255;
-//
-//                _ = c.SDL_SetRenderDrawColor(renderer, @intCast(r1), @intCast(g1), @intCast(b1), @intCast(a1));
-//                _ = c.SDL_RenderDrawPoint(renderer, dstx + x, dsty + y);
-//            }
-//        }
-//    }
 }
 
 const InputThreadData = struct {
@@ -241,8 +206,7 @@ pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     const allocator = gpa.allocator();
 
-//    const gFontSmall = try TrueType.load(@embedFile("pc.ttf"));
-    const gFontSmall = try TrueType.load(@embedFile("GoNotoCurrent-Regular.ttf"));
+    const gFontSmall = try TrueType.load(@embedFile("pc.ttf"));
     const gFontSmallBold = try TrueType.load(@embedFile("pc-bold.ttf"));
 
     if (c.SDL_Init(c.SDL_INIT_VIDEO) != 0) {
@@ -258,7 +222,7 @@ pub fn main() !void {
     };
     defer c.SDL_DestroyWindow(screen);
 
-    const renderer = c.SDL_CreateRenderer(screen, -1, 0) orelse {
+    const renderer = c.SDL_CreateRenderer(screen, -1, c.SDL_RENDERER_ACCELERATED | c.SDL_RENDERER_PRESENTVSYNC) orelse {
         c.SDL_Log("Unable to create renderer: %s", c.SDL_GetError());
         return error.SDLInitializationFailed;
     };
@@ -376,13 +340,14 @@ pub fn main() !void {
 
                 const cursorPos = term.getCursorPos();
 
-                for (0..ROWS) |y| {
+                var y:isize = ROWS-1;
+                while(y >= 0) : (y -= 1) {
                     for (0..COLS) |x| {
-                        const cell = term.getCell(x, y);
+                        const cell = term.getCell(x, @intCast(y));
                         _ = c.SDL_SetRenderDrawColor(renderer, cell.bg.rgba.r, cell.bg.rgba.g, cell.bg.rgba.b, 0xFF);
                         var rect: c.SDL_Rect = undefined;
-                        rect.x = @intCast(x * FONTSIZE / 2);
-                        rect.y = @intCast(y * FONTSIZE);
+                        rect.x = @intCast(x * FONTSIZE / 2 + BORDER/2);
+                        rect.y = @intCast(y * FONTSIZE + BORDER/2 + FONTSIZE/4);
                         rect.w = FONTSIZE / 2;
                         rect.h = FONTSIZE;
                         _ = c.SDL_RenderFillRect(renderer, &rect);
@@ -393,13 +358,12 @@ pub fn main() !void {
                                 font = &gFontSmallBold;
                             }
 
-                            const yo: i32 = -4;
-                            try drawString(allocator, renderer, font, &.{ch}, @intCast(x * FONTSIZE / 2), @as(i32, @intCast(y * FONTSIZE + FONTSIZE)) + yo, cell.fg, cell.bg);
+                            try drawString(allocator, renderer, font, &.{ch}, @intCast(BORDER/2 + x * FONTSIZE / 2), @as(i32, @intCast(BORDER/2 + (y+1) * FONTSIZE)), cell.fg, cell.bg);
                         }
                         if (term.cursorvisible and x == cursorPos.x and y == cursorPos.y) {
                             _ = c.SDL_SetRenderDrawColor(renderer, 0xFF, 0xFF, 0xFF, 0xFF);
-                            rect.x = @intCast(x * FONTSIZE / 2);
-                            rect.y = @intCast(y * FONTSIZE);
+                            rect.x = @intCast(x * FONTSIZE / 2 + BORDER/2);
+                            rect.y = @intCast(y * FONTSIZE + BORDER/2 + FONTSIZE/4);
                             rect.w = FONTSIZE / 2;
                             rect.h = FONTSIZE;
                             _ = c.SDL_RenderFillRect(renderer, &rect);

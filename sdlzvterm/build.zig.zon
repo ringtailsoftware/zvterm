@@ -8,9 +8,8 @@
         },
         .zvterm = .{ .path = ".." },
         .TrueType = .{
-//            .path = "../../TrueType",
-            .url = "git+https://codeberg.org/andrewrk/TrueType.git#07de1ff9ab29b546fd2719026df6ce9188840ee7",
-            .hash = "1220a5ede2cd84c9d137f2439e6dacbc2cab965b63a1542264bb373f22aa13a4113b",
+            .url = "git+https://codeberg.org/tobyjaffey/TrueType.git?ref=backport0_13_0#9d06f4f3f377df32a7123a267f982ac52aedcf9b",
+            .hash = "122074e7100a21b2cb4bbcd2d7f0295634c495b8be88756fe2480e1259651179aff9",
         },
     },
     .paths = .{
