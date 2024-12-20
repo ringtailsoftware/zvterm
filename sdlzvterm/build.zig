@@ -13,11 +13,6 @@ pub fn build(b: *std.Build) void {
     });
     exe.addIncludePath(b.path("src/"));
 
-    exe.addCSourceFiles(.{
-        .files = &.{"src/stb_truetype.c"},
-        .flags = &.{"-Wall"},
-    });
-
     if (b.systemIntegrationOption("sdl2", .{})) {
         exe.linkSystemLibrary("SDL2");
     } else {
@@ -33,6 +28,13 @@ pub fn build(b: *std.Build) void {
     });
     const zvterm_mod = zvterm_dep.module("zvterm");
     exe.root_module.addImport("zvterm", zvterm_mod);
+
+    const TrueType_dep = b.dependency("TrueType", .{
+        .target = target,
+        .optimize = optimize,
+    });
+    const TrueType_mod = TrueType_dep.module("TrueType");
+    exe.root_module.addImport("TrueType", TrueType_mod);
 
     b.installArtifact(exe);
 

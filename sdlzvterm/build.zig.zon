@@ -7,6 +7,11 @@
             .hash = "1220503f94b77f9c057139384cc37f020c291208f7bdee60285c71b315961cf717bd",
         },
         .zvterm = .{ .path = ".." },
+        .TrueType = .{
+//            .path = "../../TrueType",
+            .url = "git+https://codeberg.org/andrewrk/TrueType.git#07de1ff9ab29b546fd2719026df6ce9188840ee7",
+            .hash = "1220a5ede2cd84c9d137f2439e6dacbc2cab965b63a1542264bb373f22aa13a4113b",
+        },
     },
     .paths = .{
         "LICENSE",

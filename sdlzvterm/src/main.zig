@@ -11,10 +11,7 @@ const c = @cImport({
 });
 const assert = @import("std").debug.assert;
 const ZVTerm = @import("zvterm").ZVTerm;
-
-const ttf = @cImport({
-    @cInclude("stb_truetype.h");
-});
+const TrueType = @import("TrueType");
 
 const ROWS: usize = 24;
 const COLS: usize = 80;
@@ -91,115 +88,107 @@ fn compat_intToFloat(comptime T: type, value: anytype) T {
     return @as(T, @floatFromInt(value));
 }
 
-pub const Font = struct {
-    const Self = @This();
+pub fn drawString(allocator: std.mem.Allocator, renderer: *c.SDL_Renderer, font: *const TrueType, str: []const u8, posx: i32, posy: i32, fg: ZVTerm.Cell.RGBACol, bg: ZVTerm.Cell.RGBACol) !void {
 
-    bakedFontWidth: usize,
-    bakedFontHeight: usize,
-    bakedFont: []u8,
-    bakedChars: []ttf.stbtt_bakedchar,
-    pixelSize: usize,
+_ = renderer;
+_ = posx;
+_ = posy;
+_ = fg;
+_ = bg;
 
-    pub fn init(al: std.mem.Allocator, comptime ttfname: []const u8, pixelSize: usize) !Self {
-        const bakedFontWidth: usize = FONT_NUMCHARS * pixelSize;
-        const bakedFontHeight: usize = FONT_NUMCHARS * pixelSize;
-
-        const bakedFont = al.alloc(u8, bakedFontWidth * bakedFontHeight) catch |err| {
-            return err;
-        };
-        const bakedChars = al.alloc(ttf.stbtt_bakedchar, FONT_NUMCHARS) catch |err| {
-            return err;
-        };
-
-        const fontData = @embedFile(ttfname);
-
-        const ret = ttf.stbtt_BakeFontBitmap(@as([*]u8, @ptrCast(@constCast(fontData))), 0, @floatFromInt(pixelSize), bakedFont.ptr, @intCast(bakedFontWidth), @intCast(bakedFontHeight), FONT_FIRSTCHAR, FONT_NUMCHARS, bakedChars.ptr);
-        if (ret <= 0) {
-            std.log.err("BakeFontBitmap ret={d}", .{ret});
-            return error.FontInitFailed;
-        }
-
-        return Self{
-            .bakedFont = bakedFont,
-            .bakedChars = bakedChars,
-            .pixelSize = pixelSize,
-            .bakedFontWidth = bakedFontWidth,
-            .bakedFontHeight = bakedFontHeight,
-        };
-    }
-};
-
-pub fn drawString(renderer: *c.SDL_Renderer, font: *Font, str: []const u8, posx: i32, posy: i32, fg: ZVTerm.Cell.RGBACol, bg: ZVTerm.Cell.RGBACol) void {
-    var startx: f32 = compat_intToFloat(f32, posx);
-    var starty: f32 = compat_intToFloat(f32, posy);
-
-    for (str) |b| {
-        if (b < FONT_FIRSTCHAR or b > FONT_FIRSTCHAR + FONT_NUMCHARS) {
-            continue;
-        }
-
-        var q: ttf.stbtt_aligned_quad = undefined;
-        ttf.stbtt_GetBakedQuad(font.bakedChars.ptr, compat_intCast(c_int, font.bakedFontWidth), compat_intCast(c_int, font.bakedFontHeight), b - FONT_FIRSTCHAR, &startx, &starty, &q, 1);
-
-        const dstx: i32 = @intFromFloat(q.x0);
-        const dsty: i32 = @intFromFloat(q.y0);
-
-        const srcx: i32 = @intFromFloat(q.s0 * @as(f32, @floatFromInt(font.bakedFontWidth)));
-        const srcy: i32 = @intFromFloat(q.t0 * @as(f32, @floatFromInt(font.bakedFontHeight)));
-        const srcw: i32 = @intFromFloat((q.s1 - q.s0) * @as(f32, @floatFromInt(font.bakedFontWidth)));
-        const srch: i32 = @intFromFloat((q.t1 - q.t0) * @as(f32, @floatFromInt(font.bakedFontHeight)));
-
-        // srcw,srch == dstw,dsth (but stride is different, src is 8bpp, dst is 32bpp)
-
-        var y: i32 = 0;
-        while (y < srch) : (y += 1) {
-            var x: i32 = 0;
-            while (x < srcw) : (x += 1) {
-                const srcPixVal: u8 = font.bakedFont[
-                    compat_intCast(usize, (srcx + x) +
-                        (srcy + y) * compat_intCast(i32, font.bakedFontWidth))
-                ];
-
-                // break down fgRGBA
-                const r16: u16 = @intCast(fg.rgba.r);
-                const g16: u16 = @intCast(fg.rgba.g);
-                const b16: u16 = @intCast(fg.rgba.b);
-                const a16: u16 = @intCast(fg.rgba.a);
-
-                // multiply by font pixel intensity
-                const fgr: u8 = @intCast((srcPixVal * r16) >> 8);
-                const fgg: u8 = @intCast((srcPixVal * g16) >> 8);
-                const fgb: u8 = @intCast((srcPixVal * b16) >> 8);
-                const fga: u8 = @intCast((srcPixVal * a16) >> 8);
-
-                // break down bgRGBA
-                const bgr: u16 = @intCast(bg.rgba.r);
-                const bgg: u16 = @intCast(bg.rgba.g);
-                const bgb: u16 = @intCast(bg.rgba.b);
-                const bga: u16 = @intCast(bg.rgba.a);
-
-                // blend
-                const r2: u16 = fgr;
-                const g2: u16 = fgg;
-                const b2: u16 = fgb;
-                const a2: u16 = fga;
-                var r1: u16 = @intCast(bgr);
-                var g1: u16 = @intCast(bgg);
-                var b1: u16 = @intCast(bgb);
-                const a1: u16 = @intCast(bga);
-
-                r1 = (r1 * (255 - a2) + r2 * a2) / 255;
-                if (r1 > 255) r1 = 255;
-                g1 = (g1 * (255 - a2) + g2 * a2) / 255;
-                if (g1 > 255) g1 = 255;
-                b1 = (b1 * (255 - a2) + b2 * a2) / 255;
-                if (b1 > 255) b1 = 255;
-
-                _ = c.SDL_SetRenderDrawColor(renderer, @intCast(r1), @intCast(g1), @intCast(b1), @intCast(a1));
-                _ = c.SDL_RenderDrawPoint(renderer, dstx + x, dsty + y);
+    const scale = font.scaleForPixelHeight(FONTSIZE);
+    var buffer: std.ArrayListUnmanaged(u8) = undefined;
+    defer buffer.deinit(allocator);
+    const stdout = std.io.getStdOut().writer();
+    var view = try std.unicode.Utf8View.init(str);
+    var it = view.iterator();
+    while (it.nextCodepoint()) |codepoint| {
+        if (font.codepointGlyphIndex(codepoint)) |glyph| {
+            std.log.debug("0x{d}: {d}", .{ codepoint, glyph });
+            buffer.clearRetainingCapacity();
+            const dims = try font.glyphBitmap(allocator, &buffer, glyph, scale, scale);
+            const pixels = buffer.items;
+            for (0..dims.height) |j| {
+                for (0..dims.width) |i| {
+                    try stdout.writeByte(" .:ioVM@"[pixels[j * dims.width + i] >> 5]);
+                }
+                try stdout.writeByte('\n');
             }
+        } else {
+            std.log.debug("0x{d}: none", .{codepoint});
         }
     }
+
+//    var startx: f32 = compat_intToFloat(f32, posx);
+//    var starty: f32 = compat_intToFloat(f32, posy);
+//
+//    for (str) |b| {
+//        if (b < FONT_FIRSTCHAR or b > FONT_FIRSTCHAR + FONT_NUMCHARS) {
+//            continue;
+//        }
+//
+//        var q: ttf.stbtt_aligned_quad = undefined;
+//        ttf.stbtt_GetBakedQuad(font.bakedChars.ptr, compat_intCast(c_int, font.bakedFontWidth), compat_intCast(c_int, font.bakedFontHeight), b - FONT_FIRSTCHAR, &startx, &starty, &q, 1);
+//
+//        const dstx: i32 = @intFromFloat(q.x0);
+//        const dsty: i32 = @intFromFloat(q.y0);
+//
+//        const srcx: i32 = @intFromFloat(q.s0 * @as(f32, @floatFromInt(font.bakedFontWidth)));
+//        const srcy: i32 = @intFromFloat(q.t0 * @as(f32, @floatFromInt(font.bakedFontHeight)));
+//        const srcw: i32 = @intFromFloat((q.s1 - q.s0) * @as(f32, @floatFromInt(font.bakedFontWidth)));
+//        const srch: i32 = @intFromFloat((q.t1 - q.t0) * @as(f32, @floatFromInt(font.bakedFontHeight)));
+//
+//        // srcw,srch == dstw,dsth (but stride is different, src is 8bpp, dst is 32bpp)
+//
+//        var y: i32 = 0;
+//        while (y < srch) : (y += 1) {
+//            var x: i32 = 0;
+//            while (x < srcw) : (x += 1) {
+//                const srcPixVal: u8 = font.bakedFont[
+//                    compat_intCast(usize, (srcx + x) +
+//                        (srcy + y) * compat_intCast(i32, font.bakedFontWidth))
+//                ];
+//
+//                // break down fgRGBA
+//                const r16: u16 = @intCast(fg.rgba.r);
+//                const g16: u16 = @intCast(fg.rgba.g);
+//                const b16: u16 = @intCast(fg.rgba.b);
+//                const a16: u16 = @intCast(fg.rgba.a);
+//
+//                // multiply by font pixel intensity
+//                const fgr: u8 = @intCast((srcPixVal * r16) >> 8);
+//                const fgg: u8 = @intCast((srcPixVal * g16) >> 8);
+//                const fgb: u8 = @intCast((srcPixVal * b16) >> 8);
+//                const fga: u8 = @intCast((srcPixVal * a16) >> 8);
+//
+//                // break down bgRGBA
+//                const bgr: u16 = @intCast(bg.rgba.r);
+//                const bgg: u16 = @intCast(bg.rgba.g);
+//                const bgb: u16 = @intCast(bg.rgba.b);
+//                const bga: u16 = @intCast(bg.rgba.a);
+//
+//                // blend
+//                const r2: u16 = fgr;
+//                const g2: u16 = fgg;
+//                const b2: u16 = fgb;
+//                const a2: u16 = fga;
+//                var r1: u16 = @intCast(bgr);
+//                var g1: u16 = @intCast(bgg);
+//                var b1: u16 = @intCast(bgb);
+//                const a1: u16 = @intCast(bga);
+//
+//                r1 = (r1 * (255 - a2) + r2 * a2) / 255;
+//                if (r1 > 255) r1 = 255;
+//                g1 = (g1 * (255 - a2) + g2 * a2) / 255;
+//                if (g1 > 255) g1 = 255;
+//                b1 = (b1 * (255 - a2) + b2 * a2) / 255;
+//                if (b1 > 255) b1 = 255;
+//
+//                _ = c.SDL_SetRenderDrawColor(renderer, @intCast(r1), @intCast(g1), @intCast(b1), @intCast(a1));
+//                _ = c.SDL_RenderDrawPoint(renderer, dstx + x, dsty + y);
+//            }
+//        }
+//    }
 }
 
 const InputThreadData = struct {
@@ -252,8 +241,9 @@ pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     const allocator = gpa.allocator();
 
-    var gFontSmall = try Font.init(allocator, "pc.ttf", FONTSIZE);
-    var gFontSmallBold = try Font.init(allocator, "pc-bold.ttf", FONTSIZE);
+//    const gFontSmall = try TrueType.load(@embedFile("pc.ttf"));
+    const gFontSmall = try TrueType.load(@embedFile("GoNotoCurrent-Regular.ttf"));
+    const gFontSmallBold = try TrueType.load(@embedFile("pc-bold.ttf"));
 
     if (c.SDL_Init(c.SDL_INIT_VIDEO) != 0) {
         c.SDL_Log("Unable to initialize SDL: %s", c.SDL_GetError());
@@ -398,13 +388,13 @@ pub fn main() !void {
                         _ = c.SDL_RenderFillRect(renderer, &rect);
 
                         if (cell.char) |ch| {
-                            var font: *Font = &gFontSmall;
+                            var font: *const TrueType = &gFontSmall;
                             if (cell.bold) {
                                 font = &gFontSmallBold;
                             }
 
                             const yo: i32 = -4;
-                            drawString(renderer, font, &.{ch}, @intCast(x * FONTSIZE / 2), @as(i32, @intCast(y * FONTSIZE + FONTSIZE)) + yo, cell.fg, cell.bg);
+                            try drawString(allocator, renderer, font, &.{ch}, @intCast(x * FONTSIZE / 2), @as(i32, @intCast(y * FONTSIZE + FONTSIZE)) + yo, cell.fg, cell.bg);
                         }
                         if (term.cursorvisible and x == cursorPos.x and y == cursorPos.y) {
                             _ = c.SDL_SetRenderDrawColor(renderer, 0xFF, 0xFF, 0xFF, 0xFF);
