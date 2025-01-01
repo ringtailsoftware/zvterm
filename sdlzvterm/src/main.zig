@@ -278,10 +278,10 @@ pub fn main() !void {
     }
 
     var ws: std.posix.winsize = .{
-        .ws_col = @intCast(COLS),
-        .ws_row = @intCast(ROWS),
-        .ws_xpixel = 1,
-        .ws_ypixel = 1,
+        .col = @intCast(COLS),
+        .row = @intCast(ROWS),
+        .xpixel = 1,
+        .ypixel = 1,
     };
 
     // Set terminal size. Hack to pass 64bit ioctl op as c_int in Darwin

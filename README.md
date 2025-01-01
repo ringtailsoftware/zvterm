@@ -2,6 +2,8 @@
 
 A Zig wrapper for [libvterm](https://www.leonerd.org.uk/code/libvterm/), exposing a small subset in a native Zig API.
 
+Build with zig 0.14.0
+
 (Just enough to build a working toy terminal emulator)
 
 ![](sdlzvterm/demo.gif)
