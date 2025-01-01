@@ -7,7 +7,13 @@ const c = @cImport({
         @cInclude("pty.h")
     else
         @cInclude("util.h");
-    @cInclude("SDL2/SDL.h");
+    @cDefine("SDL_DISABLE_OLD_NAMES", {});
+    @cInclude("SDL3/SDL.h");
+    @cInclude("SDL3/SDL_revision.h");
+    // For programs that provide their own entry points instead of relying on SDL's main function
+    // macro magic, 'SDL_MAIN_HANDLED' should be defined before including 'SDL_main.h'.
+    @cDefine("SDL_MAIN_HANDLED", {});
+    @cInclude("SDL3/SDL_main.h");
 });
 const assert = @import("std").debug.assert;
 const ZVTerm = @import("zvterm").ZVTerm;
@@ -29,32 +35,32 @@ const Keymap = struct {
 
 // ctrl + SDL key to escape codes
 const ctrlkeymap = [_]Keymap{
-    .{ .keycode = c.SDLK_a, .data = "\x01" },
-    .{ .keycode = c.SDLK_b, .data = "\x02" },
-    .{ .keycode = c.SDLK_c, .data = "\x03" },
-    .{ .keycode = c.SDLK_d, .data = "\x04" },
-    .{ .keycode = c.SDLK_e, .data = "\x05" },
-    .{ .keycode = c.SDLK_f, .data = "\x06" },
-    .{ .keycode = c.SDLK_g, .data = "\x07" },
-    .{ .keycode = c.SDLK_h, .data = "\x08" },
-    .{ .keycode = c.SDLK_i, .data = "\x09" },
-    .{ .keycode = c.SDLK_j, .data = "\x0A" },
-    .{ .keycode = c.SDLK_k, .data = "\x0B" },
-    .{ .keycode = c.SDLK_l, .data = "\x0C" },
-    .{ .keycode = c.SDLK_m, .data = "\x0D" },
-    .{ .keycode = c.SDLK_n, .data = "\x0E" },
-    .{ .keycode = c.SDLK_o, .data = "\x0F" },
-    .{ .keycode = c.SDLK_p, .data = "\x10" },
-    .{ .keycode = c.SDLK_q, .data = "\x11" },
-    .{ .keycode = c.SDLK_r, .data = "\x12" },
-    .{ .keycode = c.SDLK_s, .data = "\x13" },
-    .{ .keycode = c.SDLK_t, .data = "\x14" },
-    .{ .keycode = c.SDLK_u, .data = "\x15" },
-    .{ .keycode = c.SDLK_v, .data = "\x16" },
-    .{ .keycode = c.SDLK_w, .data = "\x17" },
-    .{ .keycode = c.SDLK_z, .data = "\x18" },
-    .{ .keycode = c.SDLK_y, .data = "\x19" },
-    .{ .keycode = c.SDLK_z, .data = "\x1A" },
+    .{ .keycode = c.SDLK_A, .data = "\x01" },
+    .{ .keycode = c.SDLK_B, .data = "\x02" },
+    .{ .keycode = c.SDLK_C, .data = "\x03" },
+    .{ .keycode = c.SDLK_D, .data = "\x04" },
+    .{ .keycode = c.SDLK_E, .data = "\x05" },
+    .{ .keycode = c.SDLK_F, .data = "\x06" },
+    .{ .keycode = c.SDLK_G, .data = "\x07" },
+    .{ .keycode = c.SDLK_H, .data = "\x08" },
+    .{ .keycode = c.SDLK_I, .data = "\x09" },
+    .{ .keycode = c.SDLK_J, .data = "\x0A" },
+    .{ .keycode = c.SDLK_K, .data = "\x0B" },
+    .{ .keycode = c.SDLK_L, .data = "\x0C" },
+    .{ .keycode = c.SDLK_M, .data = "\x0D" },
+    .{ .keycode = c.SDLK_N, .data = "\x0E" },
+    .{ .keycode = c.SDLK_O, .data = "\x0F" },
+    .{ .keycode = c.SDLK_P, .data = "\x10" },
+    .{ .keycode = c.SDLK_Q, .data = "\x11" },
+    .{ .keycode = c.SDLK_R, .data = "\x12" },
+    .{ .keycode = c.SDLK_S, .data = "\x13" },
+    .{ .keycode = c.SDLK_T, .data = "\x14" },
+    .{ .keycode = c.SDLK_U, .data = "\x15" },
+    .{ .keycode = c.SDLK_V, .data = "\x16" },
+    .{ .keycode = c.SDLK_W, .data = "\x17" },
+    .{ .keycode = c.SDLK_X, .data = "\x18" },
+    .{ .keycode = c.SDLK_Y, .data = "\x19" },
+    .{ .keycode = c.SDLK_Z, .data = "\x1A" },
     .{ .keycode = c.SDLK_ESCAPE, .data = "\x1B" },
     .{ .keycode = c.SDLK_BACKSLASH, .data = "\x1C" },
 };
@@ -149,7 +155,7 @@ pub fn drawString(gpa: std.mem.Allocator, renderer: *c.SDL_Renderer, font: *cons
 //                    std.debug.assert(pty >= BORDER/2);
 //                    std.debug.assert(ptx < WIDTH - BORDER/2);
 //                    std.debug.assert(pty < HEIGHT - BORDER/2);
-                    _ = c.SDL_RenderDrawPoint(renderer, ptx, pty);
+                    _ = c.SDL_RenderPoint(renderer, @floatFromInt(ptx), @floatFromInt(pty));
                 }
             }
         }
@@ -189,11 +195,11 @@ fn inputThreadFn(userdata: ?*anyopaque) callconv(.C) c_int {
                 // wake SDL
                 var event: c.SDL_Event = undefined;
                 var userevent: c.SDL_UserEvent = undefined;
-                userevent.type = c.SDL_USEREVENT;
+                userevent.type = c.SDL_EVENT_USER;
                 userevent.code = 0;
                 userevent.data1 = c.NULL;
                 userevent.data2 = c.NULL;
-                event.type = c.SDL_USEREVENT;
+                event.type = c.SDL_EVENT_USER;
                 event.user = userevent;
                 _ = c.SDL_PushEvent(&event);
             }
@@ -209,26 +215,28 @@ pub fn main() !void {
     const gFontSmall = try TrueType.load(@embedFile("pc.ttf"));
     const gFontSmallBold = try TrueType.load(@embedFile("pc-bold.ttf"));
 
-    if (c.SDL_Init(c.SDL_INIT_VIDEO) != 0) {
+    c.SDL_SetMainReady();
+
+    if (!c.SDL_Init(c.SDL_INIT_VIDEO)) {
         c.SDL_Log("Unable to initialize SDL: %s", c.SDL_GetError());
         return error.SDLInitializationFailed;
     }
     defer c.SDL_Quit();
 
-    const screen = c.SDL_CreateWindow("SDLZVTerm", c.SDL_WINDOWPOS_UNDEFINED, c.SDL_WINDOWPOS_UNDEFINED, WIDTH * SCALE, HEIGHT * SCALE, c.SDL_WINDOW_OPENGL) orelse
+    const screen = c.SDL_CreateWindow("SDLZVTerm", WIDTH * SCALE, HEIGHT * SCALE, c.SDL_WINDOW_OPENGL) orelse
         {
         c.SDL_Log("Unable to create window: %s", c.SDL_GetError());
         return error.SDLInitializationFailed;
     };
     defer c.SDL_DestroyWindow(screen);
 
-    const renderer = c.SDL_CreateRenderer(screen, -1, c.SDL_RENDERER_ACCELERATED | c.SDL_RENDERER_PRESENTVSYNC) orelse {
+    const renderer = c.SDL_CreateRenderer(screen, null) orelse {
         c.SDL_Log("Unable to create renderer: %s", c.SDL_GetError());
         return error.SDLInitializationFailed;
     };
     defer c.SDL_DestroyRenderer(renderer);
 
-    _ = c.SDL_RenderSetScale(renderer, SCALE, SCALE);
+    _ = c.SDL_SetRenderScale(renderer, SCALE, SCALE);
 
     term = try ZVTerm.init(allocator, 80, 24);
     defer term.deinit();
@@ -284,33 +292,33 @@ pub fn main() !void {
         return error.SetTerminalSizeErr;
     }
 
-    c.SDL_StartTextInput();
+    _ = c.SDL_StartTextInput(screen);
 
     var inputThreadData = InputThreadData{
         .file = master_pt,
         .writer = termwriter,
         .quit = false,
     };
-    const inputThread = c.SDL_CreateThread(inputThreadFn, "inputThread", @ptrCast(&inputThreadData));
+    const inputThread = c.SDL_CreateThread(inputThreadFn, "inputThread", @as(*anyopaque, @ptrCast(&inputThreadData)));
 
     var quit = false;
     while (!quit) {
         var event: c.SDL_Event = undefined;
-        while (c.SDL_WaitEvent(&event) != 0) {
+        while (c.SDL_WaitEvent(&event)) {
             // if inputthread requests a quit, also exit main loop
             if (inputThreadData.quit) {
                 quit = true;
                 break;
             }
             switch (event.type) {
-                c.SDL_QUIT => {
+                c.SDL_EVENT_QUIT => {
                     quit = true;
                     break;
                 },
-                c.SDL_KEYDOWN => {
-                    if (event.key.keysym.mod & c.KMOD_CTRL > 0) {
+                c.SDL_EVENT_KEY_DOWN => {
+                    if (event.key.mod & c.SDL_KMOD_CTRL > 0) {
                         for (ctrlkeymap) |km| {
-                            if (km.keycode == event.key.keysym.sym) {
+                            if (km.keycode == event.key.key) {
                                 _ = master_pt.write(km.data) catch {
                                     quit = true;
                                 };
@@ -318,15 +326,15 @@ pub fn main() !void {
                         }
                     }
                     for (keymap) |km| {
-                        if (km.keycode == event.key.keysym.sym) {
+                        if (km.keycode == event.key.key) {
                             _ = master_pt.write(km.data) catch {
                                 quit = true;
                             };
                         }
                     }
                 },
-                c.SDL_TEXTINPUT => {
-                    const c_string: [*c]const u8 = &event.text.text;
+                c.SDL_EVENT_TEXT_INPUT => {
+                    const c_string: [*c]const u8 = event.text.text;
                     _ = try master_pt.write(std.mem.span(c_string));
                 },
 
@@ -345,9 +353,9 @@ pub fn main() !void {
                     for (0..COLS) |x| {
                         const cell = term.getCell(x, @intCast(y));
                         _ = c.SDL_SetRenderDrawColor(renderer, cell.bg.rgba.r, cell.bg.rgba.g, cell.bg.rgba.b, 0xFF);
-                        var rect: c.SDL_Rect = undefined;
-                        rect.x = @intCast(x * FONTSIZE / 2 + BORDER/2);
-                        rect.y = @intCast(y * FONTSIZE + BORDER/2 + FONTSIZE/4);
+                        var rect: c.SDL_FRect = undefined;
+                        rect.x = @floatFromInt(x * FONTSIZE / 2 + BORDER/2);
+                        rect.y = @floatFromInt(y * FONTSIZE + BORDER/2 + FONTSIZE/4);
                         rect.w = FONTSIZE / 2;
                         rect.h = FONTSIZE;
                         _ = c.SDL_RenderFillRect(renderer, &rect);
@@ -362,8 +370,8 @@ pub fn main() !void {
                         }
                         if (term.cursorvisible and x == cursorPos.x and y == cursorPos.y) {
                             _ = c.SDL_SetRenderDrawColor(renderer, 0xFF, 0xFF, 0xFF, 0xFF);
-                            rect.x = @intCast(x * FONTSIZE / 2 + BORDER/2);
-                            rect.y = @intCast(y * FONTSIZE + BORDER/2 + FONTSIZE/4);
+                            rect.x = @floatFromInt(x * FONTSIZE / 2 + BORDER/2);
+                            rect.y = @floatFromInt(y * FONTSIZE + BORDER/2 + FONTSIZE/4);
                             rect.w = FONTSIZE / 2;
                             rect.h = FONTSIZE;
                             _ = c.SDL_RenderFillRect(renderer, &rect);
@@ -371,7 +379,7 @@ pub fn main() !void {
                     }
                 }
 
-                c.SDL_RenderPresent(renderer);
+                _ = c.SDL_RenderPresent(renderer);
             }
         }
     }

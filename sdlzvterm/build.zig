@@ -16,11 +16,13 @@ pub fn build(b: *std.Build) void {
     if (b.systemIntegrationOption("sdl2", .{})) {
         exe.linkSystemLibrary("SDL2");
     } else {
-        const sdl_dep = b.dependency("SDL", .{
-            .optimize = .ReleaseFast,
+        const sdl_dep = b.dependency("sdl", .{
             .target = target,
+            .optimize = optimize,
+            .preferred_link_mode = .static,
         });
-        exe.linkLibrary(sdl_dep.artifact("SDL2"));
+        const sdl_lib = sdl_dep.artifact("SDL3");
+        exe.root_module.linkLibrary(sdl_lib);
     }
     const zvterm_dep = b.dependency("zvterm", .{
         .target = target,

@@ -2,14 +2,14 @@
     .name = "sdlzvterm",
     .version = "0.0.0",
     .dependencies = .{
-        .SDL = .{
-            .url = "git+https://github.com/allyourcodebase/SDL.git#fe896e655b24890f5e13ba8b740ebe0e20c4a23b",
-            .hash = "1220503f94b77f9c057139384cc37f020c291208f7bdee60285c71b315961cf717bd",
-        },
         .zvterm = .{ .path = ".." },
         .TrueType = .{
             .url = "git+https://codeberg.org/tobyjaffey/TrueType.git?ref=backport0_13_0#9d06f4f3f377df32a7123a267f982ac52aedcf9b",
             .hash = "122074e7100a21b2cb4bbcd2d7f0295634c495b8be88756fe2480e1259651179aff9",
+        },
+        .sdl = .{
+            .url = "git+https://github.com/castholm/SDL.git#ad29033021d98d915bc9396590f8a3535bf752ae",
+            .hash = "12202400e496604d01d30749c4cde49d1a096e0b322e147a9ad52264da3bce8f3f40",
         },
     },
     .paths = .{
