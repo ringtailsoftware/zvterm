@@ -1,5 +1,6 @@
 .{
-    .name = "zvterm",
+    .name = .zvterm,
+    .fingerprint = 0xe9a2a2fa0323e056,
     .version = "0.0.1",
     .dependencies = .{},
     .paths = .{
