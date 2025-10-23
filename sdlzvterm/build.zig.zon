@@ -5,12 +5,12 @@
     .dependencies = .{
         .zvterm = .{ .path = ".." },
         .TrueType = .{
-            .url = "git+https://codeberg.org/andrewrk/TrueType.git#07de1ff9ab29b546fd2719026df6ce9188840ee7",
-            .hash = "1220a5ede2cd84c9d137f2439e6dacbc2cab965b63a1542264bb373f22aa13a4113b",
+            .url = "git+https://codeberg.org/andrewrk/TrueType.git#7543e2dca70267e8f09e37be00fbc0385138581d",
+            .hash = "TrueType-0.0.0-Ne-mWHIGAQBwHsiS9z_vbr1SkVZCkG01Vpzrs079dzIO",
         },
         .sdl = .{
-            .url = "git+https://github.com/castholm/SDL.git#ad29033021d98d915bc9396590f8a3535bf752ae",
-            .hash = "12202400e496604d01d30749c4cde49d1a096e0b322e147a9ad52264da3bce8f3f40",
+            .url = "git+https://github.com/castholm/SDL.git#1d4b8dcc03bd216712b55318b4ad2402b5511490",
+            .hash = "sdl-0.3.1+3.2.24-7uIn9L9AfwFQf90JcTh3Slw__ZA8SEomk6fQI9F8ItY0",
         },
     },
     .paths = .{

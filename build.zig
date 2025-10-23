@@ -15,9 +15,11 @@ pub fn build(b: *std.Build) void {
     zvterm_mod.addIncludePath(b.path("src/"));
 
     const lib_tests = b.addTest(.{
-        .root_source_file = b.path("src/main.zig"),
-        .target = target,
-        .optimize = optimize,
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/main.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
     });
 
     const run_lib_tests = b.addRunArtifact(lib_tests);
@@ -33,9 +35,11 @@ pub fn build(b: *std.Build) void {
     for (examples) |example_name| {
         const example = b.addExecutable(.{
             .name = example_name,
-            .root_source_file = b.path(b.fmt("examples/{s}.zig", .{example_name})),
-            .target = target,
-            .optimize = optimize,
+            .root_module = b.createModule(.{
+                .root_source_file = b.path(b.fmt("examples/{s}.zig", .{example_name})),
+                .target = target,
+                .optimize = optimize,
+            }),
         });
         example.addIncludePath(b.path("examples/"));
         example.addIncludePath(b.path("src/"));

@@ -10,10 +10,10 @@ const allocFns: terminal.VTermAllocatorFunctions = .{
     .free = term_free,
 };
 
-const alloc_align = 16;
-const alloc_metadata_len = std.mem.alignForward(usize, alloc_align, @sizeOf(usize));
+const alloc_align = std.mem.Alignment.of(usize);
+const alloc_metadata_len = std.mem.alignForward(usize, @alignOf(usize), @sizeOf(usize));
 
-fn term_malloc(size: usize, user: ?*anyopaque) callconv(.C) ?*anyopaque {
+fn term_malloc(size: usize, user: ?*anyopaque) callconv(.c) ?*anyopaque {
     if (user) |userptr| {
         const self: *ZVTerm = @ptrCast(@alignCast(userptr));
         if (size == 0) {
@@ -24,7 +24,7 @@ fn term_malloc(size: usize, user: ?*anyopaque) callconv(.C) ?*anyopaque {
             error.OutOfMemory => return null,
         };
         @as(*usize, @ptrCast(buf)).* = full_len;
-        const result = @as([*]align(alloc_align) u8, @ptrFromInt(@intFromPtr(buf.ptr) + alloc_metadata_len));
+        const result = @as([*]align(@alignOf(usize)) u8, @ptrFromInt(@intFromPtr(buf.ptr) + alloc_metadata_len));
         @memset(result[0..size], 0); // zero memory
         return result;
     } else {
@@ -32,13 +32,13 @@ fn term_malloc(size: usize, user: ?*anyopaque) callconv(.C) ?*anyopaque {
     }
 }
 
-fn getAllocBuf(ptr: [*]u8) []align(alloc_align) u8 {
+fn getAllocBuf(ptr: [*]u8) []align(@alignOf(usize)) u8 {
     const start = @intFromPtr(ptr) - alloc_metadata_len;
     const len = @as(*usize, @ptrFromInt(start)).*;
     return @alignCast(@as([*]u8, @ptrFromInt(start))[0..len]);
 }
 
-fn term_free(ptr: ?*anyopaque, user: ?*anyopaque) callconv(.C) void {
+fn term_free(ptr: ?*anyopaque, user: ?*anyopaque) callconv(.c) void {
     if (user) |userptr| {
         const self: *ZVTerm = @ptrCast(@alignCast(userptr));
         const p = ptr orelse return;
@@ -46,14 +46,14 @@ fn term_free(ptr: ?*anyopaque, user: ?*anyopaque) callconv(.C) void {
     }
 }
 
-fn output_callback(s: [*c]const u8, len: usize, user: ?*anyopaque) callconv(.C) void {
+fn output_callback(s: [*c]const u8, len: usize, user: ?*anyopaque) callconv(.c) void {
     _ = s;
     _ = len;
     _ = user;
     //_ = std.debug.print("output_callback\n", .{}) catch 0;
 }
 
-fn damageFn(rect: terminal.VTermRect, user: ?*anyopaque) callconv(.C) c_int {
+fn damageFn(rect: terminal.VTermRect, user: ?*anyopaque) callconv(.c) c_int {
     if (user) |userptr| {
         const self: *ZVTerm = @ptrCast(@alignCast(userptr));
         self.damage = true;
@@ -64,7 +64,7 @@ fn damageFn(rect: terminal.VTermRect, user: ?*anyopaque) callconv(.C) c_int {
     return 0;
 }
 
-fn moverectFn(dest: terminal.VTermRect, src: terminal.VTermRect, user: ?*anyopaque) callconv(.C) c_int {
+fn moverectFn(dest: terminal.VTermRect, src: terminal.VTermRect, user: ?*anyopaque) callconv(.c) c_int {
     _ = dest;
     _ = src;
     _ = user;
@@ -72,7 +72,7 @@ fn moverectFn(dest: terminal.VTermRect, src: terminal.VTermRect, user: ?*anyopaq
     return 0;
 }
 
-fn movecursorFn(pos: terminal.VTermPos, oldpos: terminal.VTermPos, visible: c_int, user: ?*anyopaque) callconv(.C) c_int {
+fn movecursorFn(pos: terminal.VTermPos, oldpos: terminal.VTermPos, visible: c_int, user: ?*anyopaque) callconv(.c) c_int {
     if (user) |userptr| {
         const self: *ZVTerm = @ptrCast(@alignCast(userptr));
         self.damage = true;
@@ -85,7 +85,7 @@ fn movecursorFn(pos: terminal.VTermPos, oldpos: terminal.VTermPos, visible: c_in
     return 0;
 }
 
-fn settermpropFn(prop: terminal.VTermProp, val: ?*terminal.VTermValue, user: ?*anyopaque) callconv(.C) c_int {
+fn settermpropFn(prop: terminal.VTermProp, val: ?*terminal.VTermValue, user: ?*anyopaque) callconv(.c) c_int {
     if (user) |userptr| {
         const self: *ZVTerm = @ptrCast(@alignCast(userptr));
 
@@ -103,13 +103,13 @@ fn settermpropFn(prop: terminal.VTermProp, val: ?*terminal.VTermValue, user: ?*a
     return 0;
 }
 
-fn bellFn(user: ?*anyopaque) callconv(.C) c_int {
+fn bellFn(user: ?*anyopaque) callconv(.c) c_int {
     _ = user;
     //_ = std.debug.print("bell\n", .{}) catch 0;
     return 0;
 }
 
-fn resizeFn(rows: c_int, cols: c_int, user: ?*anyopaque) callconv(.C) c_int {
+fn resizeFn(rows: c_int, cols: c_int, user: ?*anyopaque) callconv(.c) c_int {
     _ = user;
     _ = rows;
     _ = cols;
@@ -117,7 +117,7 @@ fn resizeFn(rows: c_int, cols: c_int, user: ?*anyopaque) callconv(.C) c_int {
     return 0;
 }
 
-fn sb_pushlineFn(cols: c_int, cells: ?[*]const terminal.VTermScreenCell, user: ?*anyopaque) callconv(.C) c_int {
+fn sb_pushlineFn(cols: c_int, cells: ?[*]const terminal.VTermScreenCell, user: ?*anyopaque) callconv(.c) c_int {
     _ = cols;
     _ = cells;
     _ = user;
@@ -125,7 +125,7 @@ fn sb_pushlineFn(cols: c_int, cells: ?[*]const terminal.VTermScreenCell, user: ?
     return 0;
 }
 
-fn sb_poplineFn(cols: c_int, cells: ?[*]terminal.VTermScreenCell, user: ?*anyopaque) callconv(.C) c_int {
+fn sb_poplineFn(cols: c_int, cells: ?[*]terminal.VTermScreenCell, user: ?*anyopaque) callconv(.c) c_int {
     _ = cols;
     _ = cells;
     _ = user;
@@ -133,7 +133,7 @@ fn sb_poplineFn(cols: c_int, cells: ?[*]terminal.VTermScreenCell, user: ?*anyopa
     return 0;
 }
 
-fn sb_clearFn(user: ?*anyopaque) callconv(.C) c_int {
+fn sb_clearFn(user: ?*anyopaque) callconv(.c) c_int {
     _ = user;
     //_ = std.debug.print("sb_clear\n", .{}) catch 0;
     return 0;
@@ -159,30 +159,50 @@ pub const ZVTerm = struct {
     width: usize,
     height: usize,
     vtw: TermWriter,
+    vtwbuf: [4096]u8,
     allocator: std.mem.Allocator,
     cursorvisible: bool,
     damage: bool,
 
+    pub const WriteError = error{ Unsupported, NotConnected };
+
     pub const TermWriter = struct {
-        pub const Writer = std.io.Writer(
-            *TermWriter,
-            error{},
-            write,
-        );
-        pub const Error = anyerror;
         vterm: ?*terminal.VTerm,
+        interface: std.Io.Writer,
+        err: ?WriteError = null,
 
-        pub fn writeAll(self: *const TermWriter, data: []const u8) error{}!void {
-            _ = try write(self, data);
+        fn drain(w: *std.Io.Writer, data: []const []const u8, splat: usize) std.Io.Writer.Error!usize {
+            const wt: *TermWriter = @alignCast(@fieldParentPtr("interface", w));
+            var ret: usize = 0;
+
+            const b = w.buffered();
+            _ = terminal.vterm_input_write(wt.vterm, b.ptr, b.len);
+            _ = w.consume(b.len);
+
+            for (data) |d| {
+                _ = terminal.vterm_input_write(wt.vterm, d.ptr, d.len);
+                ret += d.len;
+            }
+
+            const pattern = data[data.len - 1];
+            for (0..splat) |_| {
+                _ = terminal.vterm_input_write(wt.vterm, pattern.ptr, pattern.len);
+                ret += pattern.len;
+            }
+
+            return ret;
         }
 
-        pub fn write(self: *const TermWriter, data: []const u8) error{}!usize {
-            _ = terminal.vterm_input_write(self.vterm, data.ptr, data.len);
-            return data.len;
-        }
-
-        pub fn writer(self: *TermWriter) Writer {
-            return .{ .context = self };
+        pub fn init(vterm: ?*terminal.VTerm, buf: []u8) TermWriter {
+            return TermWriter{
+                .vterm = vterm,
+                .interface = .{
+                    .buffer = buf,
+                    .vtable = &.{
+                        .drain = drain,
+                    },
+                },
+            };
         }
     };
 
@@ -225,6 +245,7 @@ pub const ZVTerm = struct {
             .width = width,
             .height = height,
             .vtw = undefined,
+            .vtwbuf = undefined,
             .cursorvisible = true,
             .damage = true,
         };
@@ -240,7 +261,7 @@ pub const ZVTerm = struct {
             .tmpbuffer_len = 4096,
         };
         self.vterm = terminal.vterm_build(&builder);
-        self.vtw = TermWriter{ .vterm = self.vterm };
+        self.vtw = TermWriter.init(self.vterm, &self.vtwbuf);
 
         terminal.vterm_output_set_callback(self.vterm, output_callback, self);
         self.screen = terminal.vterm_obtain_screen(self.vterm);
@@ -306,7 +327,7 @@ pub const ZVTerm = struct {
         return zvtc;
     }
 
-    pub fn getWriter(self: *Self) TermWriter.Writer {
-        return self.vtw.writer();
+    pub fn getWriter(self: *Self) *std.Io.Writer {
+        return &self.vtw.interface;
     }
 };

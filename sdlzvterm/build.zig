@@ -6,10 +6,12 @@ pub fn build(b: *std.Build) void {
 
     const exe = b.addExecutable(.{
         .name = "sdlzvterm",
-        .root_source_file = b.path("src/main.zig"),
-        .target = target,
-        .optimize = optimize,
-        .link_libc = true,
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/main.zig"),
+            .target = target,
+            .optimize = optimize,
+            .link_libc = true,
+        }),
     });
     exe.addIncludePath(b.path("src/"));
 
@@ -19,7 +21,7 @@ pub fn build(b: *std.Build) void {
         const sdl_dep = b.dependency("sdl", .{
             .target = target,
             .optimize = optimize,
-            .preferred_link_mode = .static,
+//            .preferred_link_mode = .static,
         });
         const sdl_lib = sdl_dep.artifact("SDL3");
         exe.root_module.linkLibrary(sdl_lib);

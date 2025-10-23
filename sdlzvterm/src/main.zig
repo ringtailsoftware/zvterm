@@ -84,7 +84,7 @@ const FONT_NUMCHARS = 128;
 const FONT_FIRSTCHAR = ' ';
 
 var term: *ZVTerm = undefined;
-var termwriter: ZVTerm.TermWriter.Writer = undefined;
+var termwriter: *std.io.Writer = undefined;
 
 pub fn drawString(gpa: std.mem.Allocator, renderer: *c.SDL_Renderer, font: *const TrueType, str: []const u8, posx: i32, posy: i32, fg: ZVTerm.Cell.RGBACol, bg: ZVTerm.Cell.RGBACol) !void {
     const scale = font.scaleForPixelHeight(FONTSIZE);
@@ -145,16 +145,16 @@ pub fn drawString(gpa: std.mem.Allocator, renderer: *c.SDL_Renderer, font: *cons
                     _ = c.SDL_SetRenderDrawColor(renderer, @intCast(r1), @intCast(g1), @intCast(b1), @intCast(a1));
                     const ptx = posx + x + dims.off_x;
                     const pty = posy + y + dims.off_y;
-//                    if (pty >= HEIGHT - BORDER/2) {
-//                        pty = (HEIGHT - BORDER/2) - 1;
-//                    }
-//                    if (ptx >= WIDTH - BORDER/2) {
-//                        ptx = (WIDTH - BORDER/2) - 1;
-//                    }
-//                    std.debug.assert(ptx >= BORDER/2);
-//                    std.debug.assert(pty >= BORDER/2);
-//                    std.debug.assert(ptx < WIDTH - BORDER/2);
-//                    std.debug.assert(pty < HEIGHT - BORDER/2);
+                    //                    if (pty >= HEIGHT - BORDER/2) {
+                    //                        pty = (HEIGHT - BORDER/2) - 1;
+                    //                    }
+                    //                    if (ptx >= WIDTH - BORDER/2) {
+                    //                        ptx = (WIDTH - BORDER/2) - 1;
+                    //                    }
+                    //                    std.debug.assert(ptx >= BORDER/2);
+                    //                    std.debug.assert(pty >= BORDER/2);
+                    //                    std.debug.assert(ptx < WIDTH - BORDER/2);
+                    //                    std.debug.assert(pty < HEIGHT - BORDER/2);
                     _ = c.SDL_RenderPoint(renderer, @floatFromInt(ptx), @floatFromInt(pty));
                 }
             }
@@ -164,11 +164,11 @@ pub fn drawString(gpa: std.mem.Allocator, renderer: *c.SDL_Renderer, font: *cons
 
 const InputThreadData = struct {
     file: std.fs.File,
-    writer: ZVTerm.TermWriter.Writer,
+    writer: *std.Io.Writer,
     quit: bool,
 };
 
-fn inputThreadFn(userdata: ?*anyopaque) callconv(.C) c_int {
+fn inputThreadFn(userdata: ?*anyopaque) callconv(.c) c_int {
     if (userdata) |p| {
         var inputThreadData: *InputThreadData = @ptrCast(@alignCast(p));
 
@@ -189,6 +189,7 @@ fn inputThreadFn(userdata: ?*anyopaque) callconv(.C) c_int {
                 const count = inputThreadData.file.read(&buf) catch 0;
                 if (count > 0) {
                     _ = inputThreadData.writer.write(buf[0..count]) catch 0;
+                    _ = inputThreadData.writer.flush() catch 0;
                 } else {
                     inputThreadData.quit = true;
                 }
@@ -225,9 +226,9 @@ pub fn main() !void {
 
     const screen = c.SDL_CreateWindow("SDLZVTerm", WIDTH * SCALE, HEIGHT * SCALE, c.SDL_WINDOW_OPENGL) orelse
         {
-        c.SDL_Log("Unable to create window: %s", c.SDL_GetError());
-        return error.SDLInitializationFailed;
-    };
+            c.SDL_Log("Unable to create window: %s", c.SDL_GetError());
+            return error.SDLInitializationFailed;
+        };
     defer c.SDL_DestroyWindow(screen);
 
     const renderer = c.SDL_CreateRenderer(screen, null) orelse {
@@ -242,8 +243,8 @@ pub fn main() !void {
     defer term.deinit();
     termwriter = term.getWriter();
 
-    // Create key=val pairs from environment
-    // https://github.com/amesaine/terminal-emulator/blob/ad0f2183259e5a2ff717fa1b7842dd76da271d57/src/terminal.zig#L61
+    //    // Create key=val pairs from environment
+    //    // https://github.com/amesaine/terminal-emulator/blob/ad0f2183259e5a2ff717fa1b7842dd76da271d57/src/terminal.zig#L61
     var map = try std.process.getEnvMap(allocator);
     defer map.deinit();
     const max_env = 1000;
@@ -252,10 +253,11 @@ pub fn main() !void {
     var i: usize = 0;
     var iter = map.iterator();
     while (iter.next()) |entry| : (i += 1) {
-        const keyval = try std.fmt.allocPrintZ(
+        const keyval = try std.fmt.allocPrintSentinel(
             allocator,
             "{s}={s}",
             .{ entry.key_ptr.*, entry.value_ptr.* },
+            0,
         );
         env[i] = keyval;
     } else {
@@ -285,7 +287,7 @@ pub fn main() !void {
     };
 
     // Set terminal size. Hack to pass 64bit ioctl op as c_int in Darwin
-    const IOCSWINSZ:u64 = 0x80087467;
+    const IOCSWINSZ: u64 = 0x80087467;
     const TIOCSWINSZ = if (std.Target.Os.Tag.isDarwin(builtin.target.os.tag)) @as(c_int, @truncate(@as(i64, @bitCast(IOCSWINSZ)))) else std.posix.T.IOCSWINSZ;
     const err = std.posix.system.ioctl(master_pt.handle, TIOCSWINSZ, @intFromPtr(&ws));
     if (std.posix.errno(err) != .SUCCESS) {
@@ -304,6 +306,8 @@ pub fn main() !void {
     var quit = false;
     while (!quit) {
         var event: c.SDL_Event = undefined;
+
+        c.SDL_Log("pre-event");
         while (c.SDL_WaitEvent(&event)) {
             // if inputthread requests a quit, also exit main loop
             if (inputThreadData.quit) {
@@ -348,14 +352,14 @@ pub fn main() !void {
 
                 const cursorPos = term.getCursorPos();
 
-                var y:isize = ROWS-1;
-                while(y >= 0) : (y -= 1) {
+                var y: isize = ROWS - 1;
+                while (y >= 0) : (y -= 1) {
                     for (0..COLS) |x| {
                         const cell = term.getCell(x, @intCast(y));
                         _ = c.SDL_SetRenderDrawColor(renderer, cell.bg.rgba.r, cell.bg.rgba.g, cell.bg.rgba.b, 0xFF);
                         var rect: c.SDL_FRect = undefined;
-                        rect.x = @floatFromInt(x * FONTSIZE / 2 + BORDER/2);
-                        rect.y = @floatFromInt(y * FONTSIZE + BORDER/2 + FONTSIZE/4);
+                        rect.x = @floatFromInt(x * FONTSIZE / 2 + BORDER / 2);
+                        rect.y = @floatFromInt(y * FONTSIZE + BORDER / 2 + FONTSIZE / 4);
                         rect.w = FONTSIZE / 2;
                         rect.h = FONTSIZE;
                         _ = c.SDL_RenderFillRect(renderer, &rect);
@@ -366,12 +370,12 @@ pub fn main() !void {
                                 font = &gFontSmallBold;
                             }
 
-                            try drawString(allocator, renderer, font, &.{ch}, @intCast(BORDER/2 + x * FONTSIZE / 2), @as(i32, @intCast(BORDER/2 + (y+1) * FONTSIZE)), cell.fg, cell.bg);
+                            try drawString(allocator, renderer, font, &.{ch}, @intCast(BORDER / 2 + x * FONTSIZE / 2), @as(i32, @intCast(BORDER / 2 + (y + 1) * FONTSIZE)), cell.fg, cell.bg);
                         }
                         if (term.cursorvisible and x == cursorPos.x and y == cursorPos.y) {
                             _ = c.SDL_SetRenderDrawColor(renderer, 0xFF, 0xFF, 0xFF, 0xFF);
-                            rect.x = @floatFromInt(x * FONTSIZE / 2 + BORDER/2);
-                            rect.y = @floatFromInt(y * FONTSIZE + BORDER/2 + FONTSIZE/4);
+                            rect.x = @floatFromInt(x * FONTSIZE / 2 + BORDER / 2);
+                            rect.y = @floatFromInt(y * FONTSIZE + BORDER / 2 + FONTSIZE / 4);
                             rect.w = FONTSIZE / 2;
                             rect.h = FONTSIZE;
                             _ = c.SDL_RenderFillRect(renderer, &rect);

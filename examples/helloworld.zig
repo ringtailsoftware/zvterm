@@ -16,8 +16,11 @@ pub fn main() !void {
 
     // move cursor to x=10,y=12 and write in red
     try writer.print("\x1B[31m\x1b[12;10HThese cells contain red in .fg", .{});
+    try writer.flush();
 
-    const stdout = std.io.getStdOut().writer();
+    var buf: [512]u8 = undefined;
+    var w = std.fs.File.stdout().writer(&buf);
+    const stdout = &w.interface;
 
     try stdout.print("Screen contents:\n", .{});
 
