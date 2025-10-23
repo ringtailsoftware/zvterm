@@ -25,5 +25,5 @@ jobs:
         working-directory: zvterm
       - name: Build sdlzvterm 
         run: zig build
-        working-directory: sdlzvterm
+        working-directory: zvterm/sdlzvterm
 
